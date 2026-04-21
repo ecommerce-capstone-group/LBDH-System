@@ -7,7 +7,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 
-// Pages
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
@@ -36,91 +35,27 @@ const queryClient = new QueryClient({
 
 function RedirectToDashboard() {
   const [, setLocation] = useLocation();
-  useEffect(() => { setLocation("/dashboard"); }, [setLocation]);
+  useEffect(() => {
+    setLocation("/dashboard");
+  }, [setLocation]);
   return null;
 }
 
-function ProtectedRoute({ component: Component, roles = ["hr", "employee"] }: any) {
+function ProtectedRoute({ component: Component, roles = ["hr", "employee"] }: { component: () => JSX.Element; roles?: Array<"hr" | "employee"> }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      setLocation("/login");
-    } else if (!isLoading && user && !roles.includes(user.role)) {
-      setLocation("/dashboard");
-    }
+    if (!isLoading && !user) setLocation("/login");
+    else if (!isLoading && user && !roles.includes(user.role)) setLocation("/dashboard");
   }, [user, isLoading, setLocation, roles]);
 
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-
-  if (!user || !roles.includes(user.role)) {
-    return null; // Will redirect in useEffect
-  }
-
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (!user || !roles.includes(user.role)) return null;
   return (
     <Layout>
       <Component />
     </Layout>
-  );
-}
-
-function Router() {
-  return (
-    <Switch>
-      <Route path="/login" component={Login} />
-      <Route path="/apply/:id" component={ApplyJob} />
-      
-      <Route path="/" component={RedirectToDashboard} />
-
-      <Route path="/dashboard">
-        {() => <ProtectedRoute component={Dashboard} />}
-      </Route>
-      
-      {/* HR Only Routes */}
-      <Route path="/employees">
-        {() => <ProtectedRoute component={Employees} roles={["hr"]} />}
-      </Route>
-      <Route path="/employees/:id">
-        {() => <ProtectedRoute component={EmployeeDetail} roles={["hr"]} />}
-      </Route>
-      <Route path="/recruitment">
-        {() => <ProtectedRoute component={Recruitment} roles={["hr"]} />}
-      </Route>
-      <Route path="/recruitment/:id">
-        {() => <ProtectedRoute component={JobDetail} roles={["hr"]} />}
-      </Route>
-      <Route path="/attendance">
-        {() => <ProtectedRoute component={Attendance} roles={["hr"]} />}
-      </Route>
-      <Route path="/leaves">
-        {() => <ProtectedRoute component={Leaves} roles={["hr"]} />}
-      </Route>
-      <Route path="/requests">
-        {() => <ProtectedRoute component={Requests} roles={["hr"]} />}
-      </Route>
-      <Route path="/performance">
-        {() => <ProtectedRoute component={Performance} roles={["hr"]} />}
-      </Route>
-      <Route path="/offboarding">
-        {() => <ProtectedRoute component={Offboarding} roles={["hr"]} />}
-      </Route>
-      <Route path="/reports">
-        {() => <ProtectedRoute component={Reports} roles={["hr"]} />}
-      </Route>
-      
-      {/* Employee Only Routes */}
-      <Route path="/self-service">
-        {() => <ProtectedRoute component={SelfService} roles={["employee"]} />}
-      </Route>
-      <Route path="/payslip">
-        {() => <ProtectedRoute component={Payslip} roles={["employee"]} />}
-      </Route>
-
-      <Route component={NotFound} />
-    </Switch>
   );
 }
 
@@ -129,7 +64,25 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <Switch>
+            <Route path="/login" component={Login} />
+            <Route path="/apply/:id" component={ApplyJob} />
+            <Route path="/" component={RedirectToDashboard} />
+            <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
+            <Route path="/employees">{() => <ProtectedRoute component={Employees} roles={["hr"]} />}</Route>
+            <Route path="/employees/:id">{() => <ProtectedRoute component={EmployeeDetail} roles={["hr"]} />}</Route>
+            <Route path="/recruitment">{() => <ProtectedRoute component={Recruitment} roles={["hr"]} />}</Route>
+            <Route path="/recruitment/:id">{() => <ProtectedRoute component={JobDetail} roles={["hr"]} />}</Route>
+            <Route path="/attendance">{() => <ProtectedRoute component={Attendance} roles={["hr"]} />}</Route>
+            <Route path="/leaves">{() => <ProtectedRoute component={Leaves} roles={["hr"]} />}</Route>
+            <Route path="/requests">{() => <ProtectedRoute component={Requests} roles={["hr"]} />}</Route>
+            <Route path="/performance">{() => <ProtectedRoute component={Performance} roles={["hr"]} />}</Route>
+            <Route path="/offboarding">{() => <ProtectedRoute component={Offboarding} roles={["hr"]} />}</Route>
+            <Route path="/reports">{() => <ProtectedRoute component={Reports} roles={["hr"]} />}</Route>
+            <Route path="/self-service">{() => <ProtectedRoute component={SelfService} roles={["employee"]} />}</Route>
+            <Route path="/payslip">{() => <ProtectedRoute component={Payslip} roles={["employee"]} />}</Route>
+            <Route component={NotFound} />
+          </Switch>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
