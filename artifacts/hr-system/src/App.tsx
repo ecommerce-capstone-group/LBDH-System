@@ -33,14 +33,6 @@ const queryClient = new QueryClient({
   },
 });
 
-function RedirectToDashboard() {
-  const [, setLocation] = useLocation();
-  useEffect(() => {
-    setLocation("/dashboard");
-  }, [setLocation]);
-  return null;
-}
-
 function ProtectedRoute({ component: Component, roles = ["hr", "employee"] }: { component: () => JSX.Element; roles?: Array<"hr" | "employee"> }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -59,15 +51,28 @@ function ProtectedRoute({ component: Component, roles = ["hr", "employee"] }: { 
   );
 }
 
+function HomeRoute() {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (user) setLocation("/dashboard");
+    else setLocation("/login");
+  }, [user, isLoading, setLocation]);
+
+  return <div className="min-h-screen bg-background" />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}> 
           <Switch>
             <Route path="/login" component={Login} />
             <Route path="/apply/:id" component={ApplyJob} />
-            <Route path="/" component={RedirectToDashboard} />
+            <Route path="/" component={HomeRoute} />
             <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
             <Route path="/employees">{() => <ProtectedRoute component={Employees} roles={["hr"]} />}</Route>
             <Route path="/employees/:id">{() => <ProtectedRoute component={EmployeeDetail} roles={["hr"]} />}</Route>
