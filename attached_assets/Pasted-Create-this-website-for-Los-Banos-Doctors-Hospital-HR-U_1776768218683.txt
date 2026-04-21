@@ -1,0 +1,225 @@
+Create this website for Los Banos Doctors Hospital HR 
+⸻
+ 
+🎨 UI
+* Hospital theme (blue / white / gray)
+* Sidebar (fixed left)
+* Top navbar (title + user info)
+* Dashboard cards
+* Tables (styled)
+* Clean forms
+* Buttons (primary / secondary / danger)
+* Status badges (Pending / Approved / Rejected)
+* Responsive for laptop
+ 
+⸻
+ 
+🔐 AUTH
+* Hardcoded accounts:
+    * HR
+    * Employee
+* After login → go directly to dashboard
+* Prevent blank/white screen (ensure routes load properly)
+ 
+⸻
+ 
+📊 DASHBOARD
+Show:
+* Total employees
+* Active job posts
+* Applicants count
+* Pending requests
+* Expiring licenses (within 30 days)
+ 
+⸻
+ 
+📥 RECRUITMENT
+HR:
+* Create / Edit / Delete job posts
+* Include:
+    * Job Description
+    * Requirements
+ 
+⸻
+ 
+📌 REQUIREMENT TYPES (IMPORTANT)
+Support:
+1. Checkbox (yes/no)
+    * Example: license, certification
+2. Number range
+    * Example: years of experience (min–max)
+ 
+⸻
+ 
+Applicant (no login):
+Submit:
+* Name
+* Skills
+* Experience
+* Resume (text)
+ 
+⸻
+ 
+🤖 MATCHING LOGIC
+* Checkbox:
+    * Checked = full points
+    * Not checked = 0
+* Number:
+    * Score = (input ÷ max) × weight
+* Total score:
+    * Cap at 100%
+ 
+⸻
+ 
+📊 DISPLAY (IMPORTANT)
+* Show:
+    * Requirement label
+    * User input/value
+    * Match %
+* Use:
+    * Progress bars
+    * Clean alignment
+ 
+⸻
+ 
+👨‍💼 EMPLOYEE MANAGEMENT
+Store:
+* Name, role, department
+* License expiration
+* Documents (text/file name)
+Auto show:
+* ⚠ Expiring (within 30 days)
+* ❌ Expired
+ 
+⸻
+ 
+📊 EMPLOYEE RECORDS
+Include:
+* Attendance tracking (table)
+* Performance appraisals:
+    * Regularization
+    * 3rd/4th month
+    * Annual
+    * Promotion
+* Grievances (simple log)
+ 
+⸻
+ 
+📅 ATTENDANCE SYSTEM
+Table:
+* Date
+* Status (Present/Absent)
+* Late
+* Undertime
+* Overtime
+Generate:
+* Late count
+* Undertime
+* Overtime summary
+ 
+⸻
+ 
+📈 PERFORMANCE MANAGEMENT
+* Track appraisal due dates
+* HR can:
+    * Add ratings/scores
+    * Save evaluations
+* Show history per employee
+ 
+⸻
+ 
+📤 OFFBOARDING
+* Mark employee as leaving
+* Add:
+    * Exit interview
+    * Clearance (HR / IT / Finance)
+* Status: Pending / Completed
+* Trigger job replacement posting
+ 
+⸻
+ 
+📥 EMPLOYEE SELF SERVICE
+Employee submits:
+* Leave (VL / SL separate)
+* Overtime
+* Loan
+* Certificate request
+* Reliever
+* Training nomination
+Also:
+* View payslip (salary + deductions)
+ 
+⸻
+ 
+🔄 APPROVAL WORKFLOW (IMPORTANT)
+Apply to ALL requests:
+1. Unit Head
+2. Department Head
+3. Auto-approved
+ 
+⸻
+ 
+Status Flow:
+* Pending → Unit Head → Dept Head → Approved/Rejected
+Show:
+* Current step
+* Current approver
+* Status
+ 
+⸻
+ 
+📄 LEAVE SYSTEM
+* Separate:
+    * Vacation Leave (VL)
+    * Sick Leave (SL)
+* Track balances
+* Show history + remaining
+ 
+⸻
+ 
+📄 REPORTS
+Generate:
+* Employee count
+* Attendance report:
+    * Late
+    * Undertime
+    * Overtime
+* Leave records
+* Overtime summary
+ 
+⸻
+ 
+📥 TRAINING NOMINATION
+* Submit training name + reason
+* Goes through approval workflow
+ 
+⸻
+ 
+📁 DOCUMENT & SECURITY
+* Store documents (text/file name)
+* Role-based access:
+    * HR = full
+    * Employee = limited
+ 
+⸻
+ 
+🔔 FEATURES
+* Full CRUD
+* Search/filter
+* Status labels
+* Simple notifications
+ 
+⸻
+ 
+⚙️ RULES
+* Keep it lightweight (low Replit credits)
+* No external APIs
+* Use simple logic only
+* No overcomplicated UI
+ 
+⸻
+ 
+🎯 GOAL
+A fully working HR system replacing manual processes with:
+* Recruitment + smart matching
+* Multi-step approvals
