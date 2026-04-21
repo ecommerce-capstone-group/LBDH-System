@@ -54,6 +54,7 @@ export default function Employees() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee</TableHead>
+                  <TableHead>Employee ID</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>License Status</TableHead>
@@ -63,11 +64,11 @@ export default function Employees() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">Loading employees...</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8">Loading employees...</TableCell>
                   </TableRow>
                 ) : employees?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">No employees found.</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">No employees found.</TableCell>
                   </TableRow>
                 ) : (
                   employees?.map((emp) => {
@@ -80,6 +81,7 @@ export default function Employees() {
                             <div className="text-sm text-gray-500">{emp.role}</div>
                           </Link>
                         </TableCell>
+                        <TableCell className="font-medium">{emp.name} • EMP-{String(emp.id).padStart(4, "0")}</TableCell>
                         <TableCell>{emp.department}</TableCell>
                         <TableCell>
                           <div className="text-sm">{emp.email}</div>

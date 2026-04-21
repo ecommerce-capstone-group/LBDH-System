@@ -1,16 +1,47 @@
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { FileText, Calendar, Clock, GraduationCap, ShieldAlert } from "lucide-react";
-import { useListRequests, getListRequestsQueryKey, useListLeaves, getListLeavesQueryKey } from "@workspace/api-client-react";
+import {
+  useListRequests,
+  getListRequestsQueryKey,
+  useListLeaves,
+  getListLeavesQueryKey,
+  useListEmployees,
+  getListEmployeesQueryKey,
+  useCreateRequest,
+  useCreateLeave,
+} from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { toast } from "sonner";
 
 export default function SelfService() {
   const { user } = useAuth();
-  
-  // Using a hardcoded employee ID 1 for the employee role since auth is mocked
-  const employeeId = 1;
+  const [leaveType, setLeaveType] = useState("VL");
+  const [leaveStartDate, setLeaveStartDate] = useState("");
+  const [leaveEndDate, setLeaveEndDate] = useState("");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [requestType, setRequestType] = useState("overtime");
+  const [requestTitle, setRequestTitle] = useState("");
+  const [requestDetails, setRequestDetails] = useState("");
+
+  const { data: employees } = useListEmployees(undefined, {
+    query: { queryKey: getListEmployeesQueryKey() },
+  });
+
+  const employee = useMemo(() => {
+    if (!user) return null;
+    const found = (employees ?? []).find((item: any) => item.name === user.name || item.email?.toLowerCase().includes(user.username));
+    return found ?? (employees ?? [])[0] ?? null;
+  }, [employees, user]);
+
+  const employeeId = employee?.id ?? 1;
+  const employeeLabel = employee ? `${employee.name} (EMP-${String(employee.id).padStart(4, "0")})` : "Employee";
 
   const { data: requests, isLoading: isRequestsLoading } = useListRequests(
     { employeeId },
@@ -22,34 +53,78 @@ export default function SelfService() {
     { query: { queryKey: getListLeavesQueryKey({ employeeId }) } }
   );
 
+  const createRequest = useCreateRequest();
+  const createLeave = useCreateLeave();
+
+  const submitLeave = async () => {
+    if (!leaveStartDate || !leaveEndDate || !leaveReason) return toast.error("Complete the leave form first");
+    await createLeave.mutateAsync({ body: { employeeId, leaveType, startDate: leaveStartDate, endDate: leaveEndDate, days: 1, reason: leaveReason } as any });
+    toast.success("Leave filed");
+    setLeaveReason("");
+  };
+
+  const submitRequest = async () => {
+    if (!requestTitle || !requestDetails) return toast.error("Complete the request form first");
+    await createRequest.mutateAsync({ body: { employeeId, type: requestType, title: requestTitle, details: requestDetails } as any });
+    toast.success("Request submitted");
+    setRequestTitle("");
+    setRequestDetails("");
+  };
+
   return (
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-gray-900">Self Service Portal</h2>
         <p className="text-gray-500">Submit requests and manage your employment needs.</p>
+        <p className="mt-2 text-sm text-gray-600">Logged in as {employeeLabel}</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <Button variant="outline" className="h-24 flex-col gap-2 border-primary/20 hover:border-primary hover:bg-primary/5">
-          <Calendar className="h-6 w-6 text-primary" />
-          <span>File Leave</span>
-        </Button>
-        <Button variant="outline" className="h-24 flex-col gap-2 border-primary/20 hover:border-primary hover:bg-primary/5">
-          <Clock className="h-6 w-6 text-primary" />
-          <span>Overtime</span>
-        </Button>
-        <Button variant="outline" className="h-24 flex-col gap-2 border-primary/20 hover:border-primary hover:bg-primary/5">
-          <FileText className="h-6 w-6 text-primary" />
-          <span>Certificate</span>
-        </Button>
-        <Button variant="outline" className="h-24 flex-col gap-2 border-primary/20 hover:border-primary hover:bg-primary/5">
-          <ShieldAlert className="h-6 w-6 text-primary" />
-          <span>Loan</span>
-        </Button>
-        <Button variant="outline" className="h-24 flex-col gap-2 border-primary/20 hover:border-primary hover:bg-primary/5">
-          <GraduationCap className="h-6 w-6 text-primary" />
-          <span>Training</span>
-        </Button>
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2"><CardTitle className="text-base">File Leave</CardTitle></CardHeader>
+          <CardContent className="p-0 space-y-2">
+            <Label>Type</Label>
+            <Input value={leaveType} onChange={(e) => setLeaveType(e.target.value)} placeholder="VL or SL" />
+            <Label>Start</Label>
+            <Input type="date" value={leaveStartDate} onChange={(e) => setLeaveStartDate(e.target.value)} />
+            <Label>End</Label>
+            <Input type="date" value={leaveEndDate} onChange={(e) => setLeaveEndDate(e.target.value)} />
+            <Textarea value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} placeholder="Reason" />
+            <Button onClick={submitLeave} className="w-full">Submit Leave</Button>
+          </CardContent>
+        </Card>
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2"><CardTitle className="text-base">Overtime</CardTitle></CardHeader>
+          <CardContent className="p-0 space-y-2">
+            <Input value={requestTitle} onChange={(e) => setRequestTitle(e.target.value)} placeholder="Overtime title" />
+            <Textarea value={requestDetails} onChange={(e) => setRequestDetails(e.target.value)} placeholder="Overtime details" />
+            <Button onClick={submitRequest} className="w-full">Submit Overtime</Button>
+          </CardContent>
+        </Card>
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2"><CardTitle className="text-base">Certificate</CardTitle></CardHeader>
+          <CardContent className="p-0 space-y-2">
+            <Input value={requestTitle} onChange={(e) => setRequestTitle(e.target.value)} placeholder="Certificate title" />
+            <Textarea value={requestDetails} onChange={(e) => setRequestDetails(e.target.value)} placeholder="Certificate details" />
+            <Button onClick={submitRequest} className="w-full">Submit Certificate</Button>
+          </CardContent>
+        </Card>
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2"><CardTitle className="text-base">Loan</CardTitle></CardHeader>
+          <CardContent className="p-0 space-y-2">
+            <Input value={requestTitle} onChange={(e) => setRequestTitle(e.target.value)} placeholder="Loan title" />
+            <Textarea value={requestDetails} onChange={(e) => setRequestDetails(e.target.value)} placeholder="Loan details" />
+            <Button onClick={submitRequest} className="w-full">Submit Loan</Button>
+          </CardContent>
+        </Card>
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2"><CardTitle className="text-base">Training</CardTitle></CardHeader>
+          <CardContent className="p-0 space-y-2">
+            <Input value={requestTitle} onChange={(e) => setRequestTitle(e.target.value)} placeholder="Training title" />
+            <Textarea value={requestDetails} onChange={(e) => setRequestDetails(e.target.value)} placeholder="Training details" />
+            <Button onClick={submitRequest} className="w-full">Submit Training</Button>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -64,11 +139,11 @@ export default function SelfService() {
               <div className="py-4 text-center text-sm text-gray-500">No leave requests found.</div>
             ) : (
               <div className="space-y-4">
-                {leaves?.slice(0, 5).map(leave => (
+                {leaves?.slice(0, 5).map((leave: any) => (
                   <div key={leave.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                     <div>
                       <div className="font-medium text-sm">{leave.leaveType} Leave</div>
-                      <div className="text-xs text-gray-500">{new Date(leave.startDate).toLocaleDateString()} ({leave.days} days)</div>
+                      <div className="text-xs text-gray-500">{employeeLabel} • {new Date(leave.startDate).toLocaleDateString()} ({leave.days} days)</div>
                     </div>
                     <StatusBadge status={leave.status} />
                   </div>
@@ -89,11 +164,11 @@ export default function SelfService() {
               <div className="py-4 text-center text-sm text-gray-500">No recent requests found.</div>
             ) : (
               <div className="space-y-4">
-                {requests?.slice(0, 5).map(req => (
+                {requests?.slice(0, 5).map((req: any) => (
                   <div key={req.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                     <div>
                       <div className="font-medium text-sm">{req.title}</div>
-                      <div className="text-xs text-gray-500 uppercase">{req.type}</div>
+                      <div className="text-xs text-gray-500 uppercase">{req.type} • {employeeLabel}</div>
                     </div>
                     <StatusBadge status={req.status} />
                   </div>
