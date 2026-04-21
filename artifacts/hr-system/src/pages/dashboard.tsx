@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useGetDashboardSummary, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Users, Briefcase, UserCheck, AlertCircle, FileText } from "lucide-react";
 import { Link } from "wouter";
 
