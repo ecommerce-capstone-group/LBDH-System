@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { HeartPulse, Briefcase, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import type { Job } from "@workspace/api-client-react";
+import { isRecord } from "@/lib/api-guards";
 
 export default function ApplyJob() {
   const params = useParams();
@@ -37,7 +39,7 @@ export default function ApplyJob() {
     );
   }
 
-  if (!job) {
+  if (!job || !isRecord(job) || typeof job.title !== "string") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
@@ -51,6 +53,9 @@ export default function ApplyJob() {
     );
   }
 
+  const jobData = job as Job;
+  const requirementRows = Array.isArray(jobData.requirements) ? jobData.requirements : [];
+
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -62,7 +67,7 @@ export default function ApplyJob() {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Received</h2>
-            <p className="text-gray-600 mb-6">Thank you for applying for the <strong>{job.title}</strong> position. Our HR team will review your qualifications and get in touch soon.</p>
+            <p className="text-gray-600 mb-6">Thank you for applying for the <strong>{jobData.title}</strong> position. Our HR team will review your qualifications and get in touch soon.</p>
             <p className="text-sm text-gray-500 font-medium">Los Banos Doctors Hospital HR</p>
           </CardContent>
         </Card>
@@ -84,14 +89,14 @@ export default function ApplyJob() {
         <Card className="border-t-4 border-t-primary shadow-md">
           <CardHeader className="bg-white pb-6 border-b border-gray-100">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-primary tracking-wider uppercase">{job.department}</span>
+              <span className="text-sm font-semibold text-primary tracking-wider uppercase">{jobData.department}</span>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full font-medium">Full Time</span>
             </div>
-            <CardTitle className="text-3xl font-extrabold text-gray-900">{job.title}</CardTitle>
+            <CardTitle className="text-3xl font-extrabold text-gray-900">{jobData.title}</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="prose prose-sm max-w-none text-gray-700">
-              <p className="whitespace-pre-wrap">{job.description}</p>
+              <p className="whitespace-pre-wrap">{jobData.description}</p>
             </div>
           </CardContent>
         </Card>
@@ -126,11 +131,11 @@ export default function ApplyJob() {
               </div>
 
               {/* Dynamic Requirements */}
-              {job.requirements && job.requirements.length > 0 && (
+              {requirementRows.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider border-b pb-2">Position Requirements</h3>
                   <div className="space-y-5 bg-blue-50/50 p-5 rounded-lg border border-blue-100/50">
-                    {job.requirements.map((req, i) => (
+                    {requirementRows.map((req: any, i: number) => (
                       <div key={i} className="flex flex-col gap-2">
                         {req.kind === "checkbox" ? (
                           <div className="flex items-center justify-between">

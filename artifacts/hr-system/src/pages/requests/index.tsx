@@ -3,12 +3,15 @@ import {
   getListRequestsQueryKey,
   useListEmployees,
   getListEmployeesQueryKey,
+  type Employee,
+  type HrRequest,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ApprovalStepper } from "@/components/approval-stepper";
 import { FileText, User } from "lucide-react";
 import { useMemo } from "react";
+import { asArray } from "@/lib/api-guards";
 
 export default function Requests() {
   const { data: requests, isLoading } = useListRequests({}, {
@@ -19,9 +22,12 @@ export default function Requests() {
     query: { queryKey: getListEmployeesQueryKey() },
   });
 
+  const requestRows = asArray<HrRequest>(requests);
+  const employeeRows = asArray<Employee>(employees);
+
   const empMap = useMemo(() => {
     const map = new Map<number, { name: string; code: string; position: string }>();
-    (employees ?? []).forEach((e: any) => {
+    employeeRows.forEach((e: any) => {
       map.set(e.id, {
         name: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || `Employee #${e.id}`,
         code: e.employeeCode ?? `EMP-${String(e.id).padStart(4, "0")}`,
@@ -29,7 +35,7 @@ export default function Requests() {
       });
     });
     return map;
-  }, [employees]);
+  }, [employeeRows]);
 
   return (
     <div className="space-y-6">
@@ -42,7 +48,7 @@ export default function Requests() {
         <div>Loading...</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
-          {requests?.map((req: any) => {
+          {requestRows.map((req: any) => {
             const info = empMap.get(req.employeeId);
             return (
               <Card key={req.id} className="flex flex-col">
@@ -86,7 +92,7 @@ export default function Requests() {
               </Card>
             );
           })}
-          {(!requests || requests.length === 0) && (
+          {requestRows.length === 0 && (
             <div className="col-span-2 text-center py-12 text-gray-500 border rounded-lg bg-white">
               No HR requests found.
             </div>

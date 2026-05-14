@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Mail, Phone, Building, Briefcase, Award } from "lucide-react";
+import { isRecord } from "@/lib/api-guards";
 
 export default function EmployeeDetail() {
   const params = useParams();
@@ -14,7 +15,9 @@ export default function EmployeeDetail() {
   });
 
   if (isLoading) return <div className="p-6">Loading profile...</div>;
-  if (!employee) return <div className="p-6">Employee not found.</div>;
+  if (!employee || !isRecord(employee) || typeof employee.name !== "string") {
+    return <div className="p-6">Employee not found.</div>;
+  }
 
   return (
     <div className="space-y-6">

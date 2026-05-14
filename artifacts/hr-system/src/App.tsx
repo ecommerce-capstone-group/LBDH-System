@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
+import { useEffect, type ReactElement } from "react";
 import { useLocation } from "wouter";
 
 import NotFound from "@/pages/not-found";
@@ -33,7 +33,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ component: Component, roles = ["hr", "employee"] }: { component: () => JSX.Element; roles?: Array<"hr" | "employee"> }) {
+function ProtectedRoute({ component: Component, roles = ["hr", "employee"] }: { component: () => ReactElement; roles?: Array<"hr" | "employee"> }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 

@@ -14,11 +14,16 @@ import {
   getListEmployeesQueryKey,
   useCreateRequest,
   useCreateLeave,
+  type Employee,
+  type HrRequest,
+  type HrRequestInput,
+  type LeaveRequest,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "sonner";
+import { asArray } from "@/lib/api-guards";
 
 export default function SelfService() {
   const { user } = useAuth();
@@ -34,11 +39,17 @@ export default function SelfService() {
     query: { queryKey: getListEmployeesQueryKey() },
   });
 
-  const employee = useMemo(() => {
+  const employeeList = asArray<Employee>(employees);
+
+  const employee = useMemo((): Employee | null => {
     if (!user) return null;
-    const found = (employees ?? []).find((item: any) => item.name === user.name || item.email?.toLowerCase().includes(user.username));
-    return found ?? (employees ?? [])[0] ?? null;
-  }, [employees, user]);
+    const found = employeeList.find(
+      (item) =>
+        item.name === user.name ||
+        item.email?.toLowerCase().includes(user.username),
+    );
+    return found ?? employeeList[0] ?? null;
+  }, [employeeList, user]);
 
   const employeeId = employee?.id ?? 1;
   const employeeLabel = employee ? `${employee.name} (EMP-${String(employee.id).padStart(4, "0")})` : "Employee";
@@ -53,19 +64,44 @@ export default function SelfService() {
     { query: { queryKey: getListLeavesQueryKey({ employeeId }) } }
   );
 
+  const leaveRows = asArray<LeaveRequest>(leaves);
+  const requestRows = asArray<HrRequest>(requests);
+
   const createRequest = useCreateRequest();
   const createLeave = useCreateLeave();
 
   const submitLeave = async () => {
-    if (!leaveStartDate || !leaveEndDate || !leaveReason) return toast.error("Complete the leave form first");
-    await createLeave.mutateAsync({ body: { employeeId, leaveType, startDate: leaveStartDate, endDate: leaveEndDate, days: 1, reason: leaveReason } as any });
+    if (!leaveStartDate || !leaveEndDate || !leaveReason) {
+      toast.error("Complete the leave form first");
+      return;
+    }
+    await createLeave.mutateAsync({
+      data: {
+        employeeId,
+        leaveType,
+        startDate: leaveStartDate,
+        endDate: leaveEndDate,
+        days: 1,
+        reason: leaveReason,
+      },
+    });
     toast.success("Leave filed");
     setLeaveReason("");
   };
 
   const submitRequest = async () => {
-    if (!requestTitle || !requestDetails) return toast.error("Complete the request form first");
-    await createRequest.mutateAsync({ body: { employeeId, type: requestType, title: requestTitle, details: requestDetails } as any });
+    if (!requestTitle || !requestDetails) {
+      toast.error("Complete the request form first");
+      return;
+    }
+    await createRequest.mutateAsync({
+      data: {
+        employeeId,
+        type: requestType as HrRequestInput["type"],
+        title: requestTitle,
+        details: requestDetails,
+      },
+    });
     toast.success("Request submitted");
     setRequestTitle("");
     setRequestDetails("");
@@ -135,11 +171,11 @@ export default function SelfService() {
           <CardContent>
             {isLeavesLoading ? (
               <div className="py-4 text-center text-sm text-gray-500">Loading leaves...</div>
-            ) : leaves?.length === 0 ? (
+            ) : leaveRows.length === 0 ? (
               <div className="py-4 text-center text-sm text-gray-500">No leave requests found.</div>
             ) : (
               <div className="space-y-4">
-                {leaves?.slice(0, 5).map((leave: any) => (
+                {leaveRows.slice(0, 5).map((leave: any) => (
                   <div key={leave.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                     <div>
                       <div className="font-medium text-sm">{leave.leaveType} Leave</div>
@@ -160,11 +196,11 @@ export default function SelfService() {
           <CardContent>
             {isRequestsLoading ? (
               <div className="py-4 text-center text-sm text-gray-500">Loading requests...</div>
-            ) : requests?.length === 0 ? (
+            ) : requestRows.length === 0 ? (
               <div className="py-4 text-center text-sm text-gray-500">No recent requests found.</div>
             ) : (
               <div className="space-y-4">
-                {requests?.slice(0, 5).map((req: any) => (
+                {requestRows.slice(0, 5).map((req: any) => (
                   <div key={req.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                     <div>
                       <div className="font-medium text-sm">{req.title}</div>

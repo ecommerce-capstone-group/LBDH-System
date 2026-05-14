@@ -4,16 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, Briefcase, UserCheck, AlertCircle, FileText } from "lucide-react";
 import { Link } from "wouter";
+import { isDashboardSummary } from "@/lib/api-guards";
 
 export default function Dashboard() {
   const { user } = useAuth();
   
-  const { data: summary, isLoading } = useGetDashboardSummary({
+  const { data: summary, isLoading, isError } = useGetDashboardSummary({
     query: {
       queryKey: getGetDashboardSummaryQueryKey(),
       enabled: user?.role === "hr",
     }
   });
+
+  const summaryData = isDashboardSummary(summary) ? summary : null;
 
   if (user?.role === "employee") {
     return (
@@ -95,7 +98,17 @@ export default function Dashboard() {
             </Card>
           ))}
         </div>
-      ) : summary ? (
+      ) : isError || !summaryData ? (
+        <Card>
+          <CardContent className="py-8 text-center text-gray-600">
+            <p className="font-medium text-gray-900">Dashboard data unavailable</p>
+            <p className="mt-2 text-sm">
+              Check your network, or set <code className="text-xs">API_PROXY_TARGET</code> in <code className="text-xs">.env</code>{" "}
+              (the dev server defaults to proxying <code className="text-xs">/api</code> to the published Replit deployment).
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
         <>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -104,7 +117,7 @@ export default function Dashboard() {
                 <Users className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{summary.totalEmployees}</div>
+                <div className="text-2xl font-bold text-gray-900">{summaryData.totalEmployees}</div>
                 <p className="text-xs text-muted-foreground">Active staff members</p>
               </CardContent>
             </Card>
@@ -115,7 +128,7 @@ export default function Dashboard() {
                 <FileText className="h-4 w-4 text-amber-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{summary.pendingRequests}</div>
+                <div className="text-2xl font-bold text-gray-900">{summaryData.pendingRequests}</div>
                 <p className="text-xs text-muted-foreground">Requires attention</p>
               </CardContent>
             </Card>
@@ -126,7 +139,7 @@ export default function Dashboard() {
                 <AlertCircle className="h-4 w-4 text-red-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{summary.expiringLicenses}</div>
+                <div className="text-2xl font-bold text-gray-900">{summaryData.expiringLicenses}</div>
                 <p className="text-xs text-muted-foreground">In the next 30 days</p>
               </CardContent>
             </Card>
@@ -137,8 +150,8 @@ export default function Dashboard() {
                 <Briefcase className="h-4 w-4 text-emerald-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{summary.activeJobs}</div>
-                <p className="text-xs text-muted-foreground">With {summary.totalApplicants} applicants</p>
+                <div className="text-2xl font-bold text-gray-900">{summaryData.activeJobs}</div>
+                <p className="text-xs text-muted-foreground">With {summaryData.totalApplicants} applicants</p>
               </CardContent>
             </Card>
           </div>
@@ -178,21 +191,21 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {summary.expiringLicenses > 0 && (
+                  {summaryData.expiringLicenses > 0 && (
                     <div className="flex items-start gap-4 rounded-lg bg-red-50 p-4 border border-red-100">
                       <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
                       <div>
                         <h4 className="font-semibold text-red-900">License Renewals Needed</h4>
-                        <p className="text-sm text-red-700">{summary.expiringLicenses} employees have professional licenses expiring within 30 days.</p>
+                        <p className="text-sm text-red-700">{summaryData.expiringLicenses} employees have professional licenses expiring within 30 days.</p>
                       </div>
                     </div>
                   )}
-                  {summary.pendingRequests > 0 && (
+                  {summaryData.pendingRequests > 0 && (
                     <div className="flex items-start gap-4 rounded-lg bg-amber-50 p-4 border border-amber-100">
                       <ClockIcon className="h-5 w-5 text-amber-600 mt-0.5" />
                       <div>
                         <h4 className="font-semibold text-amber-900">Pending Approvals</h4>
-                        <p className="text-sm text-amber-700">There are {summary.pendingRequests} requests waiting for HR review and approval.</p>
+                        <p className="text-sm text-amber-700">There are {summaryData.pendingRequests} requests waiting for HR review and approval.</p>
                       </div>
                     </div>
                   )}
@@ -201,7 +214,7 @@ export default function Dashboard() {
             </Card>
           </div>
         </>
-      ) : null}
+      )}
     </div>
   );
 }

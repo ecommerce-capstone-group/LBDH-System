@@ -7,8 +7,11 @@ import {
   getListAttendanceQueryKey,
   useListEmployees,
   getListEmployeesQueryKey,
+  type Attendance,
+  type Employee,
 } from "@workspace/api-client-react";
 import { useMemo } from "react";
+import { asArray } from "@/lib/api-guards";
 
 export default function Reports() {
   const { data: summary } = useGetDashboardSummary({
@@ -23,16 +26,19 @@ export default function Reports() {
     query: { queryKey: getListEmployeesQueryKey() },
   });
 
+  const attendanceRows = asArray<Attendance>(attendance);
+  const employeeRows = asArray<Employee>(employees);
+
   const empMap = useMemo(() => {
     const map = new Map<number, { name: string; code: string }>();
-    (employees ?? []).forEach((e: any) => {
+    employeeRows.forEach((e: any) => {
       map.set(e.id, {
         name: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || `EMP-${e.id}`,
         code: e.employeeCode ?? `EMP-${String(e.id).padStart(4, "0")}`,
       });
     });
     return map;
-  }, [employees]);
+  }, [employeeRows]);
 
   return (
     <div className="space-y-6">
@@ -77,7 +83,7 @@ export default function Reports() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attendance?.slice(0, 20).map((record: any) => {
+              {attendanceRows.slice(0, 20).map((record: any) => {
                 const info = empMap.get(record.employeeId);
                 return (
                   <TableRow key={record.id}>
@@ -90,7 +96,7 @@ export default function Reports() {
                   </TableRow>
                 );
               })}
-              {(!attendance || attendance.length === 0) && (
+              {attendanceRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-gray-500 py-6">
                     No attendance records found

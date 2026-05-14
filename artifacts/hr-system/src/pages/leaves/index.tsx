@@ -4,10 +4,12 @@ import {
   useListEmployees,
   getListEmployeesQueryKey,
 } from "@workspace/api-client-react";
+import type { Employee, LeaveRequest } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ApprovalStepper } from "@/components/approval-stepper";
 import { useMemo } from "react";
+import { asArray } from "@/lib/api-guards";
 
 export default function Leaves() {
   const { data: leaves, isLoading } = useListLeaves({}, {
@@ -18,16 +20,19 @@ export default function Leaves() {
     query: { queryKey: getListEmployeesQueryKey() },
   });
 
+  const employeeRows = asArray<Employee>(employees);
+  const leaveRows = asArray<LeaveRequest>(leaves);
+
   const empMap = useMemo(() => {
     const map = new Map<number, { name: string; code: string }>();
-    (employees ?? []).forEach((e: any) => {
+    employeeRows.forEach((e: any) => {
       map.set(e.id, {
         name: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || `Employee #${e.id}`,
         code: e.employeeCode ?? `EMP-${String(e.id).padStart(4, "0")}`,
       });
     });
     return map;
-  }, [employees]);
+  }, [employeeRows]);
 
   return (
     <div className="space-y-6">
@@ -40,7 +45,7 @@ export default function Leaves() {
         <div>Loading...</div>
       ) : (
         <div className="grid gap-6">
-          {leaves?.map((leave: any) => {
+          {leaveRows.map((leave: any) => {
             const info = empMap.get(leave.employeeId);
             return (
               <Card key={leave.id}>
@@ -79,7 +84,7 @@ export default function Leaves() {
               </Card>
             );
           })}
-          {(!leaves || leaves.length === 0) && (
+          {leaveRows.length === 0 && (
             <div className="text-center py-12 text-gray-500 border rounded-lg bg-white">
               No leave requests found.
             </div>
