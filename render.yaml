@@ -1,0 +1,22 @@
+# Render Blueprint: hosts the Express API (Option B).
+# Connect this repo in Render → New → Blueprint → apply this file.
+# You must set DATABASE_URL in the Render dashboard (Neon connection string).
+
+services:
+  - type: web
+    name: doctor-hospital-hub-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: >-
+      corepack enable &&
+      corepack prepare pnpm@9.15.0 --activate &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @workspace/api-server run build
+    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
