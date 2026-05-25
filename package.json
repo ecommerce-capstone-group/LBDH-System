@@ -12,6 +12,7 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "db:push": "pnpm --filter @workspace/db run push",
+    "db:fix-applicants": "node lib/db/scripts/ensure-applicant-columns.mjs",
     "db:seed": "pnpm --filter @workspace/scripts run seed:hr"
   },
   "private": true,

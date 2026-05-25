@@ -38,9 +38,13 @@ if (-not $drizzleDir -or -not $tsxDir) {
 $drizzleBin = Join-Path $drizzleDir.FullName "node_modules\drizzle-kit\bin.cjs"
 $tsxCli = Join-Path $tsxDir.FullName "node_modules\tsx\dist\cli.mjs"
 
-Write-Host "Pushing schema to Neon..."
+Write-Host "Ensuring applicants.email / applicants.phone columns..."
+node (Join-Path $root "lib\db\scripts\ensure-applicant-columns.mjs")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "Pushing full schema to Neon..."
 Push-Location (Join-Path $root "lib\db")
-node $drizzleBin push --config ./drizzle.config.ts
+pnpm exec drizzle-kit push --config ./drizzle.config.ts
 if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
 Pop-Location
 

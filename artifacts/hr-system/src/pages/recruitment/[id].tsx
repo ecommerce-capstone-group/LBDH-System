@@ -119,9 +119,11 @@ export default function JobDetail() {
         {applicantsError ? (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="py-6 text-sm text-red-800">
-              Could not load applicants. The database may need updating — run{" "}
-              <code className="text-xs bg-white px-1 rounded">pnpm db:push</code> with your Neon URL, then
-              redeploy the API on Render.
+              Could not load applicants. The API database (Render → DATABASE_URL) is missing applicant contact
+              columns. In Neon SQL Editor for that same database, run{" "}
+              <code className="text-xs bg-white px-1 rounded">scripts/migrate-applicants-email-phone.sql</code>, or
+              locally <code className="text-xs bg-white px-1 rounded">pnpm run db:fix-applicants</code> using the
+              identical connection string as Render.
             </CardContent>
           </Card>
         ) : isLoadingApplicants ? (
