@@ -1,6 +1,6 @@
 {
-  "installCommand": "corepack enable && corepack prepare pnpm@9.15.0 --activate && NODE_ENV=development pnpm install --frozen-lockfile --filter @workspace/hr-system...",
-  "buildCommand": "NODE_ENV=development pnpm --filter @workspace/hr-system run build",
+  "installCommand": "pnpm install --frozen-lockfile --filter @workspace/hr-system... --config.production=false",
+  "buildCommand": "pnpm --config.production=false --filter @workspace/hr-system run build",
   "outputDirectory": "artifacts/hr-system/dist/public",
   "rewrites": [
     {
