@@ -90,10 +90,16 @@ export interface RequirementMatch {
   weight: number;
 }
 
+export interface ListJobsParams {
+  status?: string;
+}
+
 export interface Applicant {
   id: number;
   jobId: number;
   name: string;
+  email: string;
+  phone: string;
   skills: string;
   experience: string;
   resume: string;
@@ -105,6 +111,8 @@ export interface Applicant {
 export interface ApplicantInput {
   jobId: number;
   name: string;
+  email: string;
+  phone: string;
   skills: string;
   experience: string;
   resume: string;

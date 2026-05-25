@@ -11,6 +11,8 @@ export interface Applicant {
   id: number;
   jobId: number;
   name: string;
+  email: string;
+  phone: string;
   skills: string;
   experience: string;
   resume: string;

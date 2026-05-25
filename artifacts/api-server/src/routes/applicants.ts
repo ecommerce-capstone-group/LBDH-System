@@ -57,11 +57,17 @@ router.post("/applicants", async (req, res) => {
   }
   const totalScore = Math.min(Math.round(total * 100) / 100, 100);
 
+  if (job.status !== "active") {
+    return res.status(400).json({ error: "This job is no longer accepting applications" });
+  }
+
   const [row] = await db
     .insert(applicants)
     .values({
       jobId: body.jobId,
       name: body.name,
+      email: body.email,
+      phone: body.phone,
       skills: body.skills,
       experience: body.experience,
       resume: body.resume,

@@ -37,7 +37,7 @@ export default function Recruitment() {
   const [department, setDepartment] = useState("");
   const [description, setDescription] = useState("");
 
-  const { data: jobs, isLoading } = useListJobs({
+  const { data: jobs, isLoading } = useListJobs(undefined, {
     query: { queryKey: getListJobsQueryKey() },
   });
 
@@ -78,6 +78,12 @@ export default function Recruitment() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">Recruitment</h2>
           <p className="text-gray-500">Manage job postings and review applicants.</p>
+          <p className="text-sm text-primary mt-1">
+            Public careers page:{" "}
+            <a href="/careers" target="_blank" rel="noreferrer" className="underline font-medium">
+              /careers
+            </a>
+          </p>
         </div>
         <Button type="button" onClick={() => setPostOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" /> Post Job
@@ -168,7 +174,7 @@ export default function Recruitment() {
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/apply/${job.id}`} target="_blank">
-                            <ExternalLink className="h-4 w-4 mr-2" /> View Public Page
+                            <ExternalLink className="h-4 w-4 mr-2" /> Apply link
                           </Link>
                         </Button>
                       </TableCell>

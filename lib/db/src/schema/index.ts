@@ -61,6 +61,8 @@ export const applicants = pgTable("applicants", {
     .notNull()
     .references(() => jobs.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  email: text("email").notNull().default(""),
+  phone: text("phone").notNull().default(""),
   skills: text("skills").notNull(),
   experience: text("experience").notNull(),
   resume: text("resume").notNull(),

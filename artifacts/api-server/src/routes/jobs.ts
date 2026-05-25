@@ -1,13 +1,19 @@
 import { Router, type IRouter } from "express";
 import { db, jobs } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { CreateJobBody, UpdateJobBody } from "@workspace/api-zod";
 import type { Requirement } from "@workspace/db";
 
 const router: IRouter = Router();
 
-router.get("/jobs", async (_req, res) => {
-  const rows = await db.select().from(jobs).orderBy(jobs.createdAt);
+router.get("/jobs", async (req, res) => {
+  const status =
+    typeof req.query.status === "string" ? req.query.status : undefined;
+  const rows = await db
+    .select()
+    .from(jobs)
+    .where(status ? eq(jobs.status, status) : undefined)
+    .orderBy(desc(jobs.createdAt));
   res.json(rows);
 });
 

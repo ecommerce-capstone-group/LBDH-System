@@ -135,6 +135,10 @@ paths:
     get:
       operationId: listJobs
       tags: [jobs]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, description: "active | closed" }
       responses:
         "200":
           description: OK
@@ -638,11 +642,13 @@ components:
 
     Applicant:
       type: object
-      required: [id, jobId, name, skills, experience, resume, totalScore, matches, createdAt]
+      required: [id, jobId, name, email, phone, skills, experience, resume, totalScore, matches, createdAt]
       properties:
         id: { type: integer }
         jobId: { type: integer }
         name: { type: string }
+        email: { type: string }
+        phone: { type: string }
         skills: { type: string }
         experience: { type: string }
         resume: { type: string }
@@ -654,10 +660,12 @@ components:
 
     ApplicantInput:
       type: object
-      required: [jobId, name, skills, experience, resume, answers]
+      required: [jobId, name, email, phone, skills, experience, resume, answers]
       properties:
         jobId: { type: integer }
         name: { type: string }
+        email: { type: string }
+        phone: { type: string }
         skills: { type: string }
         experience: { type: string }
         resume: { type: string }

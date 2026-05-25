@@ -196,6 +196,8 @@ async function run() {
     {
       jobId: nurseJob.id,
       name: "Patricia Lim",
+      email: "patricia.lim@example.com",
+      phone: "+63 917 555 0201",
       skills: "IV therapy, ventilator management, EKG interpretation",
       experience: "4 years ICU at St. Luke's; 1 year ER",
       resume:
@@ -206,6 +208,8 @@ async function run() {
     {
       jobId: nurseJob.id,
       name: "Mark Villanueva",
+      email: "mark.villanueva@example.com",
+      phone: "+63 917 555 0202",
       skills: "Bedside care, wound dressing, basic emergency response",
       experience: "2 years ward nurse",
       resume: "BSN, San Beda, 2022. PRC #0987654.",
@@ -215,6 +219,8 @@ async function run() {
     {
       jobId: medtechJob.id,
       name: "Sofia Gomez",
+      email: "sofia.gomez@example.com",
+      phone: "+63 917 555 0203",
       skills: "Hematology, urinalysis, phlebotomy, QA",
       experience: "3 years at private hospital lab",
       resume: "BS MedTech, FEU 2021. PRC #5566778.",

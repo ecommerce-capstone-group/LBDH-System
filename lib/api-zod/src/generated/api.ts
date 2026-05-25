@@ -239,10 +239,16 @@ export const ListApplicantsQueryParams = zod.object({
   jobId: zod.coerce.number().optional(),
 });
 
+export const ListJobsQueryParams = zod.object({
+  status: zod.string().optional(),
+});
+
 export const ListApplicantsResponseItem = zod.object({
   id: zod.number(),
   jobId: zod.number(),
   name: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
   skills: zod.string(),
   experience: zod.string(),
   resume: zod.string(),
@@ -263,6 +269,8 @@ export const ListApplicantsResponse = zod.array(ListApplicantsResponseItem);
 export const CreateApplicantBody = zod.object({
   jobId: zod.number(),
   name: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
   skills: zod.string(),
   experience: zod.string(),
   resume: zod.string(),
@@ -282,6 +290,8 @@ export const GetApplicantResponse = zod.object({
   id: zod.number(),
   jobId: zod.number(),
   name: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
   skills: zod.string(),
   experience: zod.string(),
   resume: zod.string(),

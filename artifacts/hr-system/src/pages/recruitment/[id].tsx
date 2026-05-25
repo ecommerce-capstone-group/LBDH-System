@@ -1,10 +1,15 @@
 import { useParams, Link } from "wouter";
-import { useGetJob, getGetJobQueryKey, useListApplicants, getListApplicantsQueryKey } from "@workspace/api-client-react";
+import {
+  useGetJob,
+  getGetJobQueryKey,
+  useListApplicants,
+  getListApplicantsQueryKey,
+} from "@workspace/api-client-react";
 import type { Applicant, Job, Requirement, RequirementMatch } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Check, X } from "lucide-react";
+import { Check, X, Mail, Phone } from "lucide-react";
 import { asArray, isRecord } from "@/lib/api-guards";
 
 export default function JobDetail() {
@@ -12,12 +17,12 @@ export default function JobDetail() {
   const id = parseInt(params.id || "0", 10);
 
   const { data: job, isLoading: isLoadingJob } = useGetJob(id, {
-    query: { enabled: !!id, queryKey: getGetJobQueryKey(id) }
+    query: { enabled: !!id, queryKey: getGetJobQueryKey(id) },
   });
 
   const { data: applicants, isLoading: isLoadingApplicants } = useListApplicants(
     { jobId: id },
-    { query: { enabled: !!id, queryKey: getListApplicantsQueryKey({ jobId: id }) } }
+    { query: { enabled: !!id, queryKey: getListApplicantsQueryKey({ jobId: id }) } },
   );
 
   const applicantRows = asArray<Applicant>(applicants);
@@ -32,17 +37,24 @@ export default function JobDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h2 className="text-2xl font-bold tracking-tight text-gray-900">{jobData.title}</h2>
             <StatusBadge status={jobData.status} />
           </div>
-          <p className="text-gray-500">{jobData.department} • Posted {new Date(jobData.createdAt).toLocaleDateString()}</p>
+          <p className="text-gray-500">
+            {jobData.department} • Posted {new Date(jobData.createdAt).toLocaleDateString()}
+          </p>
         </div>
-        <Link href={`/apply/${jobData.id}`} target="_blank" className="text-sm font-medium text-primary hover:underline flex items-center gap-1">
-          Public Link
-        </Link>
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <Link href="/careers" target="_blank" className="font-medium text-primary hover:underline">
+            Public /careers
+          </Link>
+          <Link href={`/apply/${jobData.id}`} target="_blank" className="text-gray-600 hover:underline">
+            Direct apply link
+          </Link>
+        </div>
       </div>
 
       <Card>
@@ -51,15 +63,20 @@ export default function JobDetail() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{jobData.description}</p>
-          
+
           <div className="mt-6">
-            <h4 className="text-sm font-semibold mb-3">Requirements</h4>
+            <h4 className="text-sm font-semibold mb-3">Requirements (scoring)</h4>
             <ul className="space-y-2">
               {requirements.map((req: Requirement, i: number) => (
-                <li key={i} className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary/50"></div>
+                <li
+                  key={i}
+                  className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100"
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary/50" />
                   <span>{req.label}</span>
-                  <span className="ml-auto text-xs font-mono bg-white px-2 py-0.5 rounded border border-gray-200">Weight: {req.weight ?? 0}%</span>
+                  <span className="ml-auto text-xs font-mono bg-white px-2 py-0.5 rounded border border-gray-200">
+                    Weight: {req.weight ?? 0}%
+                  </span>
                 </li>
               ))}
             </ul>
@@ -69,7 +86,8 @@ export default function JobDetail() {
 
       <div className="space-y-4">
         <h3 className="text-lg font-semibold tracking-tight text-gray-900 flex items-center gap-2">
-          Applicants <StatusBadge status={String(applicantRows.length)} className="bg-gray-100 text-gray-800" />
+          Applicants
+          <span className="text-sm font-normal text-gray-500">({applicantRows.length})</span>
         </h3>
 
         {isLoadingApplicants ? (
@@ -77,19 +95,39 @@ export default function JobDetail() {
         ) : applicantRows.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-gray-500">
-              No applicants yet for this position.
+              No applicants yet. Share the{" "}
+              <Link href="/careers" className="text-primary underline">
+                careers page
+              </Link>{" "}
+              or direct apply link.
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4">
             {applicantRows.map((applicant) => (
               <Card key={applicant.id} className="overflow-hidden">
-                <div className="flex flex-col md:flex-row">
-                  <div className="p-6 md:w-1/3 border-b md:border-b-0 md:border-r border-gray-100 bg-gray-50/30">
-                    <h4 className="font-bold text-gray-900 text-lg">{applicant.name}</h4>
-                    <p className="text-xs text-gray-500 mb-4">Applied {new Date(applicant.createdAt).toLocaleDateString()}</p>
-                    
-                    <div className="space-y-1 mb-4">
+                <div className="flex flex-col lg:flex-row">
+                  <div className="p-6 lg:w-2/5 border-b lg:border-b-0 lg:border-r border-gray-100 bg-gray-50/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-bold text-gray-900 text-lg">{applicant.name}</h4>
+                      <span className="text-xs font-mono text-gray-500 shrink-0">ID #{applicant.id}</span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Applied {new Date(applicant.createdAt).toLocaleString()}
+                    </p>
+                    <div className="flex flex-col gap-1 text-sm text-gray-600">
+                      <span className="flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5" />
+                        <a href={`mailto:${applicant.email}`} className="hover:underline">
+                          {applicant.email}
+                        </a>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5" />
+                        {applicant.phone}
+                      </span>
+                    </div>
+                    <div className="space-y-1 pt-2">
                       <div className="flex justify-between text-sm mb-1">
                         <span className="font-medium text-gray-700">Match Score</span>
                         <span className="font-bold text-primary">{Math.round(applicant.totalScore)}%</span>
@@ -97,25 +135,46 @@ export default function JobDetail() {
                       <Progress value={applicant.totalScore} className="h-2" />
                     </div>
                   </div>
-                  
-                  <div className="p-6 md:w-2/3">
-                    <h5 className="text-sm font-semibold mb-3 text-gray-700">Requirement Matches</h5>
-                    <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
-                      {asArray<RequirementMatch>(applicant.matches).map((match, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-gray-50 last:border-0">
-                          <span className="text-gray-600 truncate pr-2" title={match.label}>{match.label}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono text-xs">{match.score}%</span>
-                            {match.value === true ? (
-                              <Check className="h-4 w-4 text-emerald-500" />
-                            ) : match.value === false ? (
-                              <X className="h-4 w-4 text-red-500" />
-                            ) : (
-                              <span className="font-medium">{String(match.value)}</span>
-                            )}
+
+                  <div className="p-6 lg:w-3/5 space-y-4">
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-700 mb-1">Skills</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{applicant.skills}</p>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-700 mb-1">Experience</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{applicant.experience}</p>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-700 mb-1">Resume</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap font-mono bg-gray-50 p-3 rounded border">
+                        {applicant.resume}
+                      </p>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold mb-2 text-gray-700">Requirement Matches</h5>
+                      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+                        {asArray<RequirementMatch>(applicant.matches).map((match, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between text-sm py-1 border-b border-gray-50 last:border-0"
+                          >
+                            <span className="text-gray-600 truncate pr-2" title={match.label}>
+                              {match.label}
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="font-mono text-xs">{match.score}%</span>
+                              {match.value === true ? (
+                                <Check className="h-4 w-4 text-emerald-500" />
+                              ) : match.value === false ? (
+                                <X className="h-4 w-4 text-red-500" />
+                              ) : (
+                                <span className="font-medium">{String(match.value)}</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>

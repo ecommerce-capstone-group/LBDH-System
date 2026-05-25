@@ -17,6 +17,7 @@ import EmployeeDetail from "@/pages/employees/[id]";
 import Recruitment from "@/pages/recruitment";
 import JobDetail from "@/pages/recruitment/[id]";
 import ApplyJob from "@/pages/apply/[id]";
+import Careers from "@/pages/careers";
 import Attendance from "@/pages/attendance";
 import Leaves from "@/pages/leaves";
 import Requests from "@/pages/requests";
@@ -71,6 +72,7 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}> 
           <Switch>
             <Route path="/login" component={Login} />
+            <Route path="/careers" component={Careers} />
             <Route path="/apply/:id" component={ApplyJob} />
             <Route path="/" component={HomeRoute} />
             <Route path="/dashboard">{() => <ProtectedRoute component={Dashboard} />}</Route>
