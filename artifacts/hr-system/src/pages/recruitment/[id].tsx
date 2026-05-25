@@ -7,9 +7,10 @@ import {
 } from "@workspace/api-client-react";
 import type { Applicant, Job, Requirement, RequirementMatch } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Check, X, Mail, Phone } from "lucide-react";
+import { FitScoreBar } from "@/components/fit-score-bar";
+import { Check, X, Mail, Phone, RefreshCw } from "lucide-react";
 import { asArray, isRecord } from "@/lib/api-guards";
 
 export default function JobDetail() {
@@ -20,9 +21,22 @@ export default function JobDetail() {
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) },
   });
 
-  const { data: applicants, isLoading: isLoadingApplicants } = useListApplicants(
+  const {
+    data: applicants,
+    isLoading: isLoadingApplicants,
+    isFetching: isFetchingApplicants,
+    refetch: refetchApplicants,
+    isError: applicantsError,
+  } = useListApplicants(
     { jobId: id },
-    { query: { enabled: !!id, queryKey: getListApplicantsQueryKey({ jobId: id }) } },
+    {
+      query: {
+        enabled: !!id,
+        queryKey: getListApplicantsQueryKey({ jobId: id }),
+        refetchOnMount: "always",
+        staleTime: 0,
+      },
+    },
   );
 
   const applicantRows = asArray<Applicant>(applicants);
@@ -85,12 +99,32 @@ export default function JobDetail() {
       </Card>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold tracking-tight text-gray-900 flex items-center gap-2">
-          Applicants
-          <span className="text-sm font-normal text-gray-500">({applicantRows.length})</span>
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold tracking-tight text-gray-900 flex items-center gap-2">
+            Applicants
+            <span className="text-sm font-normal text-gray-500">({applicantRows.length})</span>
+          </h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isFetchingApplicants}
+            onClick={() => refetchApplicants()}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isFetchingApplicants ? "animate-spin" : ""}`} />
+            Refresh list
+          </Button>
+        </div>
 
-        {isLoadingApplicants ? (
+        {applicantsError ? (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="py-6 text-sm text-red-800">
+              Could not load applicants. The database may need updating — run{" "}
+              <code className="text-xs bg-white px-1 rounded">pnpm db:push</code> with your Neon URL, then
+              redeploy the API on Render.
+            </CardContent>
+          </Card>
+        ) : isLoadingApplicants ? (
           <div className="text-center py-8 text-gray-500">Loading applicants...</div>
         ) : applicantRows.length === 0 ? (
           <Card>
@@ -127,12 +161,8 @@ export default function JobDetail() {
                         {applicant.phone}
                       </span>
                     </div>
-                    <div className="space-y-1 pt-2">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-gray-700">Match Score</span>
-                        <span className="font-bold text-primary">{Math.round(applicant.totalScore)}%</span>
-                      </div>
-                      <Progress value={applicant.totalScore} className="h-2" />
+                    <div className="pt-2 rounded-lg border bg-white p-3">
+                      <FitScoreBar score={applicant.totalScore} size="lg" />
                     </div>
                   </div>
 

@@ -4,7 +4,8 @@ import {
   getGetJobQueryKey,
   useCreateApplicant,
 } from "@workspace/api-client-react";
-import type { Job, Requirement, RequirementAnswer } from "@workspace/api-client-react";
+import type { Applicant, Job, Requirement, RequirementAnswer } from "@workspace/api-client-react";
+import { FitScoreBar } from "@/components/fit-score-bar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import { isRecord } from "@/lib/api-guards";
 export default function ApplyJob() {
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
-  const [applicationId, setApplicationId] = useState<number | null>(null);
+  const [submitted, setSubmitted] = useState<Applicant | null>(null);
 
   const { data: job, isLoading } = useGetJob(id, {
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) },
@@ -65,11 +66,17 @@ export default function ApplyJob() {
           answers,
         },
       });
-      setApplicationId(row.id);
-      toast.success("Application submitted.");
+      setSubmitted(row);
+      toast.success("Application submitted successfully!", {
+        description: `Your application ID is #${row.id}. HR will review your qualifications.`,
+        duration: 8000,
+      });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Could not submit application.";
-      toast.error(msg);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Could not submit application. Please try again or contact HR.";
+      toast.error("Submission failed", { description: msg, duration: 8000 });
     }
   };
 
@@ -114,25 +121,37 @@ export default function ApplyJob() {
     );
   }
 
-  if (applicationId !== null) {
+  if (submitted) {
     return (
       <LbdhCareersShell compactHeader>
-        <Card className="w-full text-center border-emerald-100 bg-emerald-50/30 shadow-lg">
-          <CardContent className="pt-8 pb-8">
+        <Card className="w-full border-emerald-200 bg-emerald-50/40 shadow-lg overflow-hidden">
+          <CardContent className="pt-8 pb-8 px-6">
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-emerald-300 bg-emerald-100/80 px-4 py-3 mb-6 text-emerald-900 text-sm font-medium text-center"
+            >
+              Application submitted successfully — save your application ID below.
+            </div>
             <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Received</h2>
-            <p className="text-gray-600 mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Application Received</h2>
+            <p className="text-gray-600 mb-4 text-center">
               Thank you for applying for <strong>{jobData.title}</strong>.
             </p>
-            <p className="text-sm font-mono bg-white border border-emerald-200 rounded-lg px-4 py-3 mb-6">
-              Application ID: <span className="font-bold text-emerald-800">#{applicationId}</span>
+            <p className="text-sm font-mono bg-white border border-emerald-200 rounded-lg px-4 py-3 mb-6 text-center">
+              Application ID: <span className="font-bold text-emerald-800">#{submitted.id}</span>
             </p>
-            <p className="text-sm text-gray-500">Our HR team will review your application and contact you.</p>
-            <Button className="mt-6" variant="outline" asChild>
+            <div className="max-w-md mx-auto mb-6 rounded-lg border bg-white p-4">
+              <FitScoreBar score={submitted.totalScore} size="lg" />
+            </div>
+            <p className="text-sm text-gray-500 text-center">
+              This score is shared with HR to help review your fit for the role.
+            </p>
+            <Button className="mt-6 mx-auto block" variant="outline" asChild>
               <Link href="/careers">Back to Careers</Link>
             </Button>
           </CardContent>
