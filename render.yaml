@@ -8,11 +8,12 @@ services:
     runtime: node
     plan: free
     region: oregon
+    # NODE_ENV=production (below) skips devDependencies; esbuild is required to build.
     buildCommand: >-
       corepack enable &&
       corepack prepare pnpm@9.15.0 --activate &&
-      pnpm install --frozen-lockfile --filter @workspace/api-server... &&
-      pnpm --filter @workspace/api-server run build
+      NODE_ENV=development pnpm install --frozen-lockfile --filter @workspace/api-server... &&
+      NODE_ENV=development pnpm --filter @workspace/api-server run build
     startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
