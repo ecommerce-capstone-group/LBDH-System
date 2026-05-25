@@ -125,10 +125,17 @@ async function run() {
         status: "active",
       },
       {
-        title: "Billing Clerk",
+        title: "Finance & Accounting Manager",
         department: "Finance",
-        description:
-          "Process patient billing, coordinate with insurance providers, and maintain accurate billing records.",
+        description: [
+          "Graduate of Bachelor of Science in Accountancy, Finance, or any related course",
+          "With at least 5 years managerial experience in Finance and Accounting",
+          "Preferably with hospital or healthcare industry experience",
+          "Strong background in financial reporting, budgeting and forecasting, and general accounting",
+          "Knowledgeable in Philippine accounting standards, BIR regulations, and DOH compliance",
+          "Excellent leadership and people management skills",
+          "Able to work under pressure and meet deadlines",
+        ].join("\n"),
         requirements: [
           { label: "Bachelor's Degree", kind: "checkbox", weight: 30 },
           { label: "Years of Experience", kind: "number", weight: 50, max: 3 },

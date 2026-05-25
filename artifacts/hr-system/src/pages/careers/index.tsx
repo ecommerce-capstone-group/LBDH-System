@@ -4,10 +4,11 @@ import {
   getListJobsQueryKey,
   type Job,
 } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { HeartPulse, Briefcase, MapPin } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import { asArray } from "@/lib/api-guards";
+import { LbdhCareersShell } from "@/components/careers/lbdh-careers-shell";
+import { JobPostingPoster } from "@/components/careers/job-posting-poster";
+import { LBDH_CAREERS } from "@/components/careers/lbdh-brand";
 
 export default function Careers() {
   const { data: jobs, isLoading, isError } = useListJobs(
@@ -18,75 +19,55 @@ export default function Careers() {
   const rows = asArray<Job>(jobs);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-white shadow-md mb-4">
-            <HeartPulse className="h-8 w-8" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Los Baños Doctors Hospital</h1>
-          <p className="text-primary font-semibold tracking-wide uppercase text-sm mt-1">Careers</p>
-          <p className="text-gray-600 mt-3 max-w-lg">
-            Open positions posted by our HR team. Apply online — no account required.
-          </p>
+    <LbdhCareersShell>
+      <div
+        className="text-center rounded-lg px-4 py-5 text-white shadow-md"
+        style={{
+          background: `linear-gradient(135deg, ${LBDH_CAREERS.navy} 0%, ${LBDH_CAREERS.navyLight} 100%)`,
+        }}
+      >
+        <p className="text-3xl md:text-4xl font-black tracking-tight">
+          <span>WE ARE </span>
+          <span className="text-transparent" style={{ WebkitTextStroke: "2px white" }}>
+            HIRING
+          </span>
+        </p>
+        <p className="mt-2 italic text-sky-200 text-lg">Join our team</p>
+        <p className="mt-3 text-sm text-sky-100/90 max-w-md mx-auto">
+          Current openings from {LBDH_CAREERS.hospitalName} Human Resources — same posts you see on
+          LBDH Careers.
+        </p>
+      </div>
+
+      {isLoading && (
+        <p className="text-center text-gray-500 py-12">Loading open positions…</p>
+      )}
+
+      {isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-8 text-center text-red-700">
+          Could not load job postings. Please try again later.
         </div>
-      </header>
+      )}
 
-      <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
-        {isLoading && (
-          <p className="text-center text-gray-500 py-12">Loading open positions…</p>
-        )}
+      {!isLoading && !isError && rows.length === 0 && (
+        <div className="rounded-lg border bg-white px-4 py-12 text-center shadow-sm">
+          <Briefcase className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+          <p className="text-gray-600 font-medium">No open positions right now.</p>
+          <p className="text-sm text-gray-500 mt-2">Check back soon or follow LBDH Careers on Facebook.</p>
+        </div>
+      )}
 
-        {isError && (
-          <Card className="border-red-200 bg-red-50/50">
-            <CardContent className="py-8 text-center text-red-700">
-              Could not load job postings. Please try again later.
-            </CardContent>
-          </Card>
-        )}
+      {rows.map((job) => (
+        <JobPostingPoster key={job.id} job={job} />
+      ))}
 
-        {!isLoading && !isError && rows.length === 0 && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Briefcase className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-600 font-medium">No open positions right now.</p>
-              <p className="text-sm text-gray-500 mt-2">Check back soon for new opportunities.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {rows.map((job) => (
-          <Card key={job.id} className="shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-primary">
-            <CardHeader className="pb-2">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CardTitle className="text-xl text-gray-900">{job.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-1.5 mt-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {job.department}
-                  </CardDescription>
-                </div>
-                <span className="text-xs font-medium uppercase tracking-wide text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                  Open
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-700 line-clamp-4 whitespace-pre-wrap">{job.description}</p>
-              <p className="text-xs text-gray-500">
-                Posted {new Date(job.createdAt).toLocaleDateString()}
-              </p>
-              <Button asChild>
-                <Link href={`/apply/${job.id}`}>Apply for this position</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </main>
-
-      <footer className="border-t border-gray-200 py-6 text-center text-xs text-gray-500">
-        Los Baños Doctors Hospital — Human Resources
-      </footer>
-    </div>
+      <p className="text-center text-xs text-gray-500 pb-4">
+        HR staff: post jobs in{" "}
+        <Link href="/recruitment" className="text-[#0c1f4a] underline font-medium">
+          Recruitment
+        </Link>
+        . Use one qualification per line in the description for poster-style bullets.
+      </p>
+    </LbdhCareersShell>
   );
 }

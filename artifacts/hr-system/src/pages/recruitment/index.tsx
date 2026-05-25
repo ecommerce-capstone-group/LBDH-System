@@ -95,7 +95,8 @@ export default function Recruitment() {
           <DialogHeader>
             <DialogTitle>Post a job</DialogTitle>
             <DialogDescription>
-              Creates an open position. Applicants will answer a default qualification checklist on the public apply page.
+              Appears on the public /careers page in LBDH hiring-poster style. Put one qualification per line in the
+              description (like your Facebook posts). Applicants complete a short checklist when they apply.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
@@ -108,13 +109,14 @@ export default function Recruitment() {
               <Input id="job-dept" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="ICU" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="job-desc">Description *</Label>
+              <Label htmlFor="job-desc">Qualifications (one per line) *</Label>
               <Textarea
                 id="job-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={6}
-                placeholder="Responsibilities, schedule, qualifications…"
+                rows={10}
+                className="font-mono text-sm"
+                placeholder={`FINANCE & ACCOUNTING MANAGER example:\nGraduate of BS Accountancy or related course\nAt least 5 years managerial experience in Finance and Accounting\nPreferably with hospital or healthcare industry experience\nStrong background in financial reporting and budgeting`}
               />
             </div>
           </div>

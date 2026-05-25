@@ -11,7 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { HeartPulse, Briefcase, ChevronRight, ArrowLeft } from "lucide-react";
+import { Briefcase, ChevronRight, ArrowLeft } from "lucide-react";
+import { LbdhCareersShell } from "@/components/careers/lbdh-careers-shell";
+import { JobPostingPoster } from "@/components/careers/job-posting-poster";
+import { LBDH_CAREERS } from "@/components/careers/lbdh-brand";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { isRecord } from "@/lib/api-guards";
@@ -72,19 +75,16 @@ export default function ApplyJob() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center">
-          <HeartPulse className="h-12 w-12 text-primary mb-4" />
-          <div className="h-4 w-32 bg-gray-200 rounded" />
-        </div>
-      </div>
+      <LbdhCareersShell compactHeader>
+        <p className="text-center text-gray-500 py-16">Loading position…</p>
+      </LbdhCareersShell>
     );
   }
 
-  if (!job || !isRecord(job) || typeof job.title !== "string") {
+  if (!jobData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md text-center">
+      <LbdhCareersShell compactHeader>
+        <Card className="w-full text-center">
           <CardContent className="pt-6">
             <Briefcase className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h2 className="text-xl font-bold text-gray-900 mb-2">Job Not Found</h2>
@@ -94,16 +94,14 @@ export default function ApplyJob() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </LbdhCareersShell>
     );
   }
 
-  if (!jobData) return null;
-
   if (jobData.status !== "active") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md text-center">
+      <LbdhCareersShell compactHeader>
+        <Card className="w-full text-center">
           <CardContent className="pt-6">
             <h2 className="text-xl font-bold text-gray-900 mb-2">Position Closed</h2>
             <p className="text-gray-500 mb-4">Applications are no longer accepted for this role.</p>
@@ -112,14 +110,14 @@ export default function ApplyJob() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </LbdhCareersShell>
     );
   }
 
   if (applicationId !== null) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md text-center border-emerald-100 bg-emerald-50/30 shadow-lg">
+      <LbdhCareersShell compactHeader>
+        <Card className="w-full text-center border-emerald-100 bg-emerald-50/30 shadow-lg">
           <CardContent className="pt-8 pb-8">
             <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -139,34 +137,19 @@ export default function ApplyJob() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </LbdhCareersShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <div className="flex flex-col items-center justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white shadow-md mb-4">
-            <HeartPulse className="h-7 w-7" />
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Los Baños Doctors Hospital</h1>
-          <Button variant="link" className="mt-2 text-sm" asChild>
-            <Link href="/careers">
-              <ArrowLeft className="h-4 w-4 mr-1" /> All open positions
-            </Link>
-          </Button>
-        </div>
+    <LbdhCareersShell compactHeader>
+      <Button variant="ghost" size="sm" className="w-fit -mt-2" asChild>
+        <Link href="/careers" className="text-[#0c1f4a]">
+          <ArrowLeft className="h-4 w-4 mr-1" /> All open positions
+        </Link>
+      </Button>
 
-        <Card className="border-t-4 border-t-primary shadow-md">
-          <CardHeader className="bg-white pb-6 border-b border-gray-100">
-            <span className="text-sm font-semibold text-primary tracking-wider uppercase">{jobData.department}</span>
-            <CardTitle className="text-3xl font-extrabold text-gray-900 mt-2">{jobData.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{jobData.description}</p>
-          </CardContent>
-        </Card>
+      <JobPostingPoster job={jobData} showApplyButton={false} />
 
         <form onSubmit={handleSubmit}>
           <Card className="shadow-md overflow-hidden">
@@ -285,14 +268,19 @@ export default function ApplyJob() {
               </div>
             </CardContent>
             <CardFooter className="bg-gray-50 border-t border-gray-100 p-6">
-              <Button type="submit" size="lg" className="w-full md:w-auto font-semibold" disabled={createApplicant.isPending}>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full md:w-auto font-bold uppercase tracking-wide"
+                style={{ backgroundColor: LBDH_CAREERS.navy }}
+                disabled={createApplicant.isPending}
+              >
                 {createApplicant.isPending ? "Submitting…" : "Submit Application"}
                 <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
         </form>
-      </div>
-    </div>
+    </LbdhCareersShell>
   );
 }
