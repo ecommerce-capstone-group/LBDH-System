@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ApprovalStepper } from "@/components/approval-stepper";
 import { ApprovalActions } from "@/components/approval-actions";
 import { asArray } from "@/lib/api-guards";
+import { getRecordProgress } from "@/lib/training-progress";
 import { PlusCircle, GraduationCap } from "lucide-react";
 import {
   Dialog,
@@ -279,26 +280,28 @@ export default function Training() {
                       <TableHead>Employee</TableHead>
                       <TableHead>Training</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>Hours</TableHead>
+                      <TableHead>Session hrs</TableHead>
+                      <TableHead>Progress</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {recordsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           Loading…
                         </TableCell>
                       </TableRow>
                     ) : recordRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           No training records yet.
                         </TableCell>
                       </TableRow>
                     ) : (
                       recordRows.map((r) => {
                         const emp = employeeRows.find((e) => e.id === r.employeeId);
+                        const progress = getRecordProgress(r, recordRows, planRows);
                         return (
                           <TableRow key={r.id}>
                             <TableCell>
@@ -310,6 +313,9 @@ export default function Training() {
                               {r.trainingType.replace(/_/g, " ")}
                             </TableCell>
                             <TableCell>{r.trainingHours}</TableCell>
+                            <TableCell className="text-sm font-medium text-primary">
+                              {progress.label}
+                            </TableCell>
                             <TableCell>
                               <StatusBadge status={r.completionStatus} />
                             </TableCell>

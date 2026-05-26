@@ -20,6 +20,7 @@ import {
   type TrainingRecord,
 } from "@workspace/api-client-react";
 import { asArray } from "@/lib/api-guards";
+import { getPlanProgress, getRecordProgress } from "@/lib/training-progress";
 import { useQueryClient } from "@tanstack/react-query";
 
 type Props = {
@@ -121,12 +122,18 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
           {dohPlans.length === 0 ? (
             <p className="text-sm text-gray-500">No DOH trainings scheduled this year.</p>
           ) : (
-            dohPlans.map((p) => (
-              <div key={p.id} className="text-sm border-b pb-2 last:border-0">
-                <p className="font-medium">{p.title}</p>
-                <p className="text-gray-500">{p.trainingHours}h · HR-assigned</p>
-              </div>
-            ))
+            dohPlans.map((p) => {
+              const progress = getPlanProgress(p, recordRows, employeeId);
+              return (
+                <div key={p.id} className="text-sm border-b pb-2 last:border-0">
+                  <p className="font-medium">{p.title}</p>
+                  <p className="text-gray-500">
+                    Required: {p.trainingHours}h · HR-assigned
+                  </p>
+                  <p className="text-primary font-medium text-xs mt-1">{progress.label}</p>
+                </div>
+              );
+            })
           )}
         </CardContent>
       </Card>
@@ -139,16 +146,19 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
           {hospitalPlans.length === 0 ? (
             <p className="text-sm text-gray-500">No open hospital trainings.</p>
           ) : (
-            hospitalPlans.map((p) => (
+            hospitalPlans.map((p) => {
+              const progress = getPlanProgress(p, recordRows, employeeId);
+              return (
               <div key={p.id} className="flex justify-between items-start gap-2 text-sm">
                 <div>
                   <p className="font-medium">{p.title}</p>
                   <p className="text-gray-500">
-                    {p.trainingHours}h
+                    Required: {p.trainingHours}h
                     {p.plannedDate
                       ? ` · ${new Date(p.plannedDate).toLocaleDateString()}`
                       : ""}
                   </p>
+                  <p className="text-primary font-medium text-xs mt-1">{progress.label}</p>
                 </div>
                 {isEnrolled(p.id) ? (
                   <StatusBadge status="enrolled" />
@@ -163,7 +173,8 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
                   </Button>
                 )}
               </div>
-            ))
+            );
+            })
           )}
         </CardContent>
       </Card>
@@ -234,14 +245,22 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
             <p className="text-sm text-gray-500">No completed trainings on file.</p>
           ) : (
             <ul className="space-y-2 text-sm">
-              {recordRows.map((r) => (
-                <li key={r.id} className="flex justify-between border-b pb-2">
-                  <span>{r.trainingName}</span>
-                  <span className="text-gray-500">
-                    {new Date(r.trainingDate).toLocaleDateString()} · {r.trainingHours}h
-                  </span>
-                </li>
-              ))}
+              {recordRows.map((r) => {
+                const progress = getRecordProgress(r, recordRows, planRows);
+                return (
+                  <li key={r.id} className="border-b pb-2 last:border-0">
+                    <div className="flex justify-between gap-2">
+                      <span className="font-medium">{r.trainingName}</span>
+                      <span className="text-gray-500 shrink-0">
+                        {new Date(r.trainingDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      This session: {r.trainingHours}h · {progress.label}
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
