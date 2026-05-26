@@ -14,7 +14,8 @@ services:
       corepack prepare pnpm@9.15.0 --activate &&
       NODE_ENV=development pnpm install --frozen-lockfile --filter @workspace/api-server... &&
       NODE_ENV=development pnpm --filter @workspace/api-server run build &&
-      node lib/db/scripts/migrate-appraisals.mjs
+      node lib/db/scripts/migrate-appraisals.mjs &&
+      node lib/db/scripts/migrate-training-appraisals.mjs
     startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:

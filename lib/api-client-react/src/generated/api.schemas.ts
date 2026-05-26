@@ -269,7 +269,22 @@ export interface Appraisal {
   recommendation?: string;
   employeeAcknowledgement?: string;
   signatories: AppraisalSignatory[];
+  /** pending | approved | rejected | archived */
+  status: string;
+  currentStep: string;
+  steps: ApprovalStep[];
+  employeeSelfAssessment?: string;
+  appraiserComments?: string;
+  departmentHeadComments?: string;
+  hrComments?: string;
+  signedFormReference?: string;
+  archivedAt?: string | null;
   createdAt: string;
+}
+
+export interface ArchiveAppraisalInput {
+  signedFormReference?: string | null;
+  actor?: string | null;
 }
 
 export interface AppraisalInput {
@@ -293,6 +308,92 @@ export interface AppraisalInput {
   recommendation?: string | null;
   employeeAcknowledgement?: string | null;
   signatories: AppraisalSignatory[];
+  employeeSelfAssessment?: string | null;
+  appraiserComments?: string | null;
+  departmentHeadComments?: string | null;
+  hrComments?: string | null;
+  signedFormReference?: string | null;
+}
+
+export type TrainingCategory =
+  (typeof TrainingCategory)[keyof typeof TrainingCategory];
+
+export const TrainingCategory = {
+  doh_initiated: "doh_initiated",
+  hospital_required: "hospital_required",
+  departmental_request: "departmental_request",
+} as const;
+
+export interface TrainingPlan {
+  id: number;
+  year: number;
+  category: TrainingCategory;
+  title: string;
+  description?: string;
+  trainingHours?: number;
+  plannedDate?: string | null;
+  department?: string | null;
+  employeeId?: number | null;
+  /** draft | published | pending | approved | rejected */
+  status: string;
+  currentStep: string;
+  steps: ApprovalStep[];
+  createdAt: string;
+}
+
+export interface TrainingPlanInput {
+  year: number;
+  category: TrainingCategory;
+  title: string;
+  description?: string | null;
+  trainingHours?: number | null;
+  plannedDate?: string | null;
+  department?: string | null;
+  employeeId?: number | null;
+}
+
+export interface TrainingEnrollment {
+  id: number;
+  planId: number;
+  employeeId: number;
+  /** enrolled | completed | withdrawn */
+  status: string;
+  createdAt: string;
+}
+
+export interface TrainingEnrollmentInput {
+  employeeId: number;
+}
+
+export interface TrainingRecord {
+  id: number;
+  employeeId: number;
+  planId?: number | null;
+  enrollmentId?: number | null;
+  trainingName: string;
+  trainingDate: string;
+  trainingHours: number;
+  trainingType: TrainingCategory;
+  /** scheduled | in_progress | completed | cancelled */
+  completionStatus: string;
+  remarks?: string;
+  contractAgreement?: string;
+  fileReference?: string;
+  createdAt: string;
+}
+
+export interface TrainingRecordInput {
+  employeeId: number;
+  planId?: number | null;
+  enrollmentId?: number | null;
+  trainingName: string;
+  trainingDate: string;
+  trainingHours: number;
+  trainingType: TrainingCategory;
+  completionStatus?: string | null;
+  remarks?: string | null;
+  contractAgreement?: string | null;
+  fileReference?: string | null;
 }
 
 export interface Grievance {
@@ -380,6 +481,22 @@ export type ListRequestsParams = {
 
 export type ListAppraisalsParams = {
   employeeId?: number;
+};
+
+export type ListTrainingPlansParams = {
+  year?: number;
+  category?: TrainingCategory;
+  employeeId?: number;
+};
+
+export type ListTrainingEnrollmentsParams = {
+  employeeId?: number;
+  planId?: number;
+};
+
+export type ListTrainingRecordsParams = {
+  employeeId?: number;
+  year?: number;
 };
 
 export type ListGrievancesParams = {

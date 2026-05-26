@@ -30,4 +30,9 @@ export interface AppraisalInput {
   recommendation?: string | null;
   employeeAcknowledgement?: string | null;
   signatories: AppraisalSignatory[];
+  employeeSelfAssessment?: string | null;
+  appraiserComments?: string | null;
+  departmentHeadComments?: string | null;
+  hrComments?: string | null;
+  signedFormReference?: string | null;
 }

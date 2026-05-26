@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ApprovalStepper } from "@/components/approval-stepper";
+import { ApprovalActions } from "@/components/approval-actions";
 import {
   APPRAISAL_TEMPLATES,
   APPRAISAL_TYPES,
@@ -493,7 +495,19 @@ export function AppraisalForm({
   );
 }
 
-export function AppraisalDetailView({ appraisal }: { appraisal: import("@workspace/api-client-react").Appraisal }) {
+type AppraisalDetailProps = {
+  appraisal: import("@workspace/api-client-react").Appraisal;
+  onAdvance?: (decision: "approve" | "reject", note: string) => Promise<void>;
+  onArchive?: (signedFormReference: string) => Promise<void>;
+  actor?: string;
+};
+
+export function AppraisalDetailView({
+  appraisal,
+  onAdvance,
+  onArchive,
+  actor = "HR",
+}: AppraisalDetailProps) {
   const template = APPRAISAL_TEMPLATES[appraisal.templateType];
   const maxTotal = maxPossibleTotal(template);
 
@@ -522,10 +536,69 @@ export function AppraisalDetailView({ appraisal }: { appraisal: import("@workspa
           <span className="text-gray-500">Evaluator:</span> {appraisal.evaluator} (
           {appraisal.evaluatorPosition})
         </p>
+        <p>
+          <span className="text-gray-500">Status:</span>{" "}
+          <span className="capitalize">{appraisal.status}</span>
+        </p>
         <p className="font-semibold text-emerald-700">
           Total: {appraisal.totalScore} / {maxTotal}
         </p>
       </div>
+
+      {appraisal.steps?.length > 0 ? (
+        <div className="rounded-lg border p-4 bg-gray-50">
+          <p className="font-medium mb-3">Approval workflow</p>
+          <ApprovalStepper
+            steps={appraisal.steps}
+            currentStep={appraisal.currentStep}
+          />
+          {appraisal.status === "pending" && onAdvance ? (
+            <ApprovalActions actor={actor} onAdvance={onAdvance} />
+          ) : null}
+          {appraisal.status === "approved" && onArchive ? (
+            <ArchiveAppraisalAction onArchive={onArchive} />
+          ) : null}
+        </div>
+      ) : null}
+
+      {appraisal.employeeSelfAssessment ? (
+        <div>
+          <p className="font-medium">Employee self-assessment</p>
+          <p className="text-gray-600 whitespace-pre-wrap">
+            {appraisal.employeeSelfAssessment}
+          </p>
+        </div>
+      ) : null}
+
+      {appraisal.appraiserComments ? (
+        <div>
+          <p className="font-medium">Appraiser comments</p>
+          <p className="text-gray-600 whitespace-pre-wrap">{appraisal.appraiserComments}</p>
+        </div>
+      ) : null}
+
+      {appraisal.departmentHeadComments ? (
+        <div>
+          <p className="font-medium">Department head comments</p>
+          <p className="text-gray-600 whitespace-pre-wrap">
+            {appraisal.departmentHeadComments}
+          </p>
+        </div>
+      ) : null}
+
+      {appraisal.hrComments ? (
+        <div>
+          <p className="font-medium">HR comments</p>
+          <p className="text-gray-600 whitespace-pre-wrap">{appraisal.hrComments}</p>
+        </div>
+      ) : null}
+
+      {appraisal.signedFormReference ? (
+        <div>
+          <p className="font-medium">Signed form reference</p>
+          <p className="text-gray-600">{appraisal.signedFormReference}</p>
+        </div>
+      ) : null}
 
       {appraisal.strengths ? (
         <div>
@@ -574,6 +647,42 @@ export function AppraisalDetailView({ appraisal }: { appraisal: import("@workspa
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+function ArchiveAppraisalAction({
+  onArchive,
+}: {
+  onArchive: (signedFormReference: string) => Promise<void>;
+}) {
+  const [ref, setRef] = useState("");
+  const [pending, setPending] = useState(false);
+
+  return (
+    <div className="space-y-2 border-t pt-4 mt-4">
+      <Label htmlFor="signed-ref">Signed form reference</Label>
+      <Input
+        id="signed-ref"
+        value={ref}
+        onChange={(e) => setRef(e.target.value)}
+        placeholder="File path or document ID"
+      />
+      <Button
+        type="button"
+        size="sm"
+        disabled={pending}
+        onClick={() => {
+          setPending(true);
+          onArchive(ref)
+            .catch((e: unknown) =>
+              toast.error(e instanceof Error ? e.message : "Archive failed"),
+            )
+            .finally(() => setPending(false));
+        }}
+      >
+        Archive appraisal
+      </Button>
     </div>
   );
 }

@@ -537,6 +537,23 @@ export const ListAppraisalsResponseItem = zod.object({
       name: zod.string(),
     }),
   ),
+  status: zod.string().describe("pending | approved | rejected | archived"),
+  currentStep: zod.string(),
+  steps: zod.array(
+    zod.object({
+      name: zod.string().describe("Unit Head | Department Head | Auto"),
+      status: zod.string().describe("pending | approved | rejected"),
+      actor: zod.string().nullish(),
+      note: zod.string().nullish(),
+      timestamp: zod.string().nullish(),
+    }),
+  ),
+  employeeSelfAssessment: zod.string().optional(),
+  appraiserComments: zod.string().optional(),
+  departmentHeadComments: zod.string().optional(),
+  hrComments: zod.string().optional(),
+  signedFormReference: zod.string().optional(),
+  archivedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListAppraisalsResponse = zod.array(ListAppraisalsResponseItem);
@@ -574,6 +591,312 @@ export const CreateAppraisalBody = zod.object({
       name: zod.string(),
     }),
   ),
+  employeeSelfAssessment: zod.string().nullish(),
+  appraiserComments: zod.string().nullish(),
+  departmentHeadComments: zod.string().nullish(),
+  hrComments: zod.string().nullish(),
+  signedFormReference: zod.string().nullish(),
+});
+
+export const AdvanceAppraisalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdvanceAppraisalBody = zod.object({
+  decision: zod.string().describe("approve | reject"),
+  actor: zod.string().nullish(),
+  note: zod.string().nullish(),
+});
+
+export const AdvanceAppraisalResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  templateType: zod.enum(["non_supervisory", "supervisory"]),
+  appraisalType: zod
+    .string()
+    .describe("2nd month | 3rd month | 5th month | Other"),
+  employeeName: zod.string(),
+  department: zod.string(),
+  position: zod.string(),
+  hireDate: zod.string().nullish(),
+  appraisalPeriod: zod.string(),
+  evaluator: zod.string(),
+  evaluatorPosition: zod.string(),
+  appraisalDate: zod.string().nullish(),
+  strengths: zod.string().optional(),
+  areasForImprovement: zod.string().optional(),
+  suggestedActionPlan: zod.string().optional(),
+  shortTermGoals: zod.string().optional(),
+  longTermGoals: zod.string().optional(),
+  criterionScores: zod.array(
+    zod.object({
+      criterionId: zod.string(),
+      groupId: zod.string(),
+      label: zod.string(),
+      score: zod.number(),
+    }),
+  ),
+  totalScore: zod.number(),
+  recommendation: zod.string().optional(),
+  employeeAcknowledgement: zod.string().optional(),
+  signatories: zod.array(
+    zod.object({
+      role: zod.string(),
+      name: zod.string(),
+    }),
+  ),
+  status: zod.string().describe("pending | approved | rejected | archived"),
+  currentStep: zod.string(),
+  steps: zod.array(
+    zod.object({
+      name: zod.string().describe("Unit Head | Department Head | Auto"),
+      status: zod.string().describe("pending | approved | rejected"),
+      actor: zod.string().nullish(),
+      note: zod.string().nullish(),
+      timestamp: zod.string().nullish(),
+    }),
+  ),
+  employeeSelfAssessment: zod.string().optional(),
+  appraiserComments: zod.string().optional(),
+  departmentHeadComments: zod.string().optional(),
+  hrComments: zod.string().optional(),
+  signedFormReference: zod.string().optional(),
+  archivedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+export const ArchiveAppraisalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ArchiveAppraisalBody = zod.object({
+  signedFormReference: zod.string().nullish(),
+  actor: zod.string().nullish(),
+});
+
+export const ArchiveAppraisalResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  templateType: zod.enum(["non_supervisory", "supervisory"]),
+  appraisalType: zod
+    .string()
+    .describe("2nd month | 3rd month | 5th month | Other"),
+  employeeName: zod.string(),
+  department: zod.string(),
+  position: zod.string(),
+  hireDate: zod.string().nullish(),
+  appraisalPeriod: zod.string(),
+  evaluator: zod.string(),
+  evaluatorPosition: zod.string(),
+  appraisalDate: zod.string().nullish(),
+  strengths: zod.string().optional(),
+  areasForImprovement: zod.string().optional(),
+  suggestedActionPlan: zod.string().optional(),
+  shortTermGoals: zod.string().optional(),
+  longTermGoals: zod.string().optional(),
+  criterionScores: zod.array(
+    zod.object({
+      criterionId: zod.string(),
+      groupId: zod.string(),
+      label: zod.string(),
+      score: zod.number(),
+    }),
+  ),
+  totalScore: zod.number(),
+  recommendation: zod.string().optional(),
+  employeeAcknowledgement: zod.string().optional(),
+  signatories: zod.array(
+    zod.object({
+      role: zod.string(),
+      name: zod.string(),
+    }),
+  ),
+  status: zod.string().describe("pending | approved | rejected | archived"),
+  currentStep: zod.string(),
+  steps: zod.array(
+    zod.object({
+      name: zod.string().describe("Unit Head | Department Head | Auto"),
+      status: zod.string().describe("pending | approved | rejected"),
+      actor: zod.string().nullish(),
+      note: zod.string().nullish(),
+      timestamp: zod.string().nullish(),
+    }),
+  ),
+  employeeSelfAssessment: zod.string().optional(),
+  appraiserComments: zod.string().optional(),
+  departmentHeadComments: zod.string().optional(),
+  hrComments: zod.string().optional(),
+  signedFormReference: zod.string().optional(),
+  archivedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+export const ListTrainingPlansQueryParams = zod.object({
+  year: zod.coerce.number().optional(),
+  category: zod
+    .enum(["doh_initiated", "hospital_required", "departmental_request"])
+    .optional(),
+  employeeId: zod.coerce.number().optional(),
+});
+
+export const ListTrainingPlansResponseItem = zod.object({
+  id: zod.number(),
+  year: zod.number(),
+  category: zod.enum([
+    "doh_initiated",
+    "hospital_required",
+    "departmental_request",
+  ]),
+  title: zod.string(),
+  description: zod.string().optional(),
+  trainingHours: zod.number().optional(),
+  plannedDate: zod.string().nullish(),
+  department: zod.string().nullish(),
+  employeeId: zod.number().nullish(),
+  status: zod
+    .string()
+    .describe("draft | published | pending | approved | rejected"),
+  currentStep: zod.string(),
+  steps: zod.array(
+    zod.object({
+      name: zod.string().describe("Unit Head | Department Head | Auto"),
+      status: zod.string().describe("pending | approved | rejected"),
+      actor: zod.string().nullish(),
+      note: zod.string().nullish(),
+      timestamp: zod.string().nullish(),
+    }),
+  ),
+  createdAt: zod.string(),
+});
+export const ListTrainingPlansResponse = zod.array(
+  ListTrainingPlansResponseItem,
+);
+
+export const CreateTrainingPlanBody = zod.object({
+  year: zod.number(),
+  category: zod.enum([
+    "doh_initiated",
+    "hospital_required",
+    "departmental_request",
+  ]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  trainingHours: zod.number().nullish(),
+  plannedDate: zod.string().nullish(),
+  department: zod.string().nullish(),
+  employeeId: zod.number().nullish(),
+});
+
+export const AdvanceTrainingPlanParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdvanceTrainingPlanBody = zod.object({
+  decision: zod.string().describe("approve | reject"),
+  actor: zod.string().nullish(),
+  note: zod.string().nullish(),
+});
+
+export const AdvanceTrainingPlanResponse = zod.object({
+  id: zod.number(),
+  year: zod.number(),
+  category: zod.enum([
+    "doh_initiated",
+    "hospital_required",
+    "departmental_request",
+  ]),
+  title: zod.string(),
+  description: zod.string().optional(),
+  trainingHours: zod.number().optional(),
+  plannedDate: zod.string().nullish(),
+  department: zod.string().nullish(),
+  employeeId: zod.number().nullish(),
+  status: zod
+    .string()
+    .describe("draft | published | pending | approved | rejected"),
+  currentStep: zod.string(),
+  steps: zod.array(
+    zod.object({
+      name: zod.string().describe("Unit Head | Department Head | Auto"),
+      status: zod.string().describe("pending | approved | rejected"),
+      actor: zod.string().nullish(),
+      note: zod.string().nullish(),
+      timestamp: zod.string().nullish(),
+    }),
+  ),
+  createdAt: zod.string(),
+});
+
+export const EnrollTrainingPlanParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const EnrollTrainingPlanBody = zod.object({
+  employeeId: zod.number(),
+});
+
+export const ListTrainingEnrollmentsQueryParams = zod.object({
+  employeeId: zod.coerce.number().optional(),
+  planId: zod.coerce.number().optional(),
+});
+
+export const ListTrainingEnrollmentsResponseItem = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  employeeId: zod.number(),
+  status: zod.string().describe("enrolled | completed | withdrawn"),
+  createdAt: zod.string(),
+});
+export const ListTrainingEnrollmentsResponse = zod.array(
+  ListTrainingEnrollmentsResponseItem,
+);
+
+export const ListTrainingRecordsQueryParams = zod.object({
+  employeeId: zod.coerce.number().optional(),
+  year: zod.coerce.number().optional(),
+});
+
+export const ListTrainingRecordsResponseItem = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  planId: zod.number().nullish(),
+  enrollmentId: zod.number().nullish(),
+  trainingName: zod.string(),
+  trainingDate: zod.string(),
+  trainingHours: zod.number(),
+  trainingType: zod.enum([
+    "doh_initiated",
+    "hospital_required",
+    "departmental_request",
+  ]),
+  completionStatus: zod
+    .string()
+    .describe("scheduled | in_progress | completed | cancelled"),
+  remarks: zod.string().optional(),
+  contractAgreement: zod.string().optional(),
+  fileReference: zod.string().optional(),
+  createdAt: zod.string(),
+});
+export const ListTrainingRecordsResponse = zod.array(
+  ListTrainingRecordsResponseItem,
+);
+
+export const CreateTrainingRecordBody = zod.object({
+  employeeId: zod.number(),
+  planId: zod.number().nullish(),
+  enrollmentId: zod.number().nullish(),
+  trainingName: zod.string(),
+  trainingDate: zod.string(),
+  trainingHours: zod.number(),
+  trainingType: zod.enum([
+    "doh_initiated",
+    "hospital_required",
+    "departmental_request",
+  ]),
+  completionStatus: zod.string().nullish(),
+  remarks: zod.string().nullish(),
+  contractAgreement: zod.string().nullish(),
+  fileReference: zod.string().nullish(),
 });
 
 export const ListGrievancesQueryParams = zod.object({

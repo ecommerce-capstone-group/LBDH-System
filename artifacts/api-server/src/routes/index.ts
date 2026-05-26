@@ -8,6 +8,7 @@ import attendanceRouter from "./attendance";
 import leavesRouter from "./leaves";
 import requestsRouter from "./requests";
 import appraisalsRouter from "./appraisals";
+import trainingRouter from "./training";
 import grievancesRouter from "./grievances";
 import offboardingsRouter from "./offboardings";
 
@@ -22,6 +23,7 @@ router.use(attendanceRouter);
 router.use(leavesRouter);
 router.use(requestsRouter);
 router.use(appraisalsRouter);
+router.use(trainingRouter);
 router.use(grievancesRouter);
 router.use(offboardingsRouter);
 

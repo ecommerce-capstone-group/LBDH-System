@@ -8,6 +8,7 @@
 import type { AppraisalCriterionScore } from "./appraisalCriterionScore";
 import type { AppraisalSignatory } from "./appraisalSignatory";
 import type { AppraisalTemplateType } from "./appraisalTemplateType";
+import type { ApprovalStep } from "./approvalStep";
 
 export interface Appraisal {
   id: number;
@@ -33,5 +34,15 @@ export interface Appraisal {
   recommendation?: string;
   employeeAcknowledgement?: string;
   signatories: AppraisalSignatory[];
+  /** pending | approved | rejected | archived */
+  status: string;
+  currentStep: string;
+  steps: ApprovalStep[];
+  employeeSelfAssessment?: string;
+  appraiserComments?: string;
+  departmentHeadComments?: string;
+  hrComments?: string;
+  signedFormReference?: string;
+  archivedAt?: string | null;
   createdAt: string;
 }

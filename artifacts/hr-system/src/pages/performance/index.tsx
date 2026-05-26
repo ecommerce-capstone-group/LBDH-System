@@ -8,9 +8,12 @@ import {
   useListEmployees,
   getListEmployeesQueryKey,
   useCreateAppraisal,
+  useAdvanceAppraisal,
+  useArchiveAppraisal,
   type Appraisal,
   type Employee,
 } from "@workspace/api-client-react";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { APPRAISAL_TEMPLATES, maxPossibleTotal } from "@workspace/db/appraisal-templates";
 import { AppraisalForm, AppraisalDetailView } from "@/components/appraisal-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +52,8 @@ export default function Performance() {
   });
 
   const createAppraisal = useCreateAppraisal();
+  const advanceAppraisal = useAdvanceAppraisal();
+  const archiveAppraisal = useArchiveAppraisal();
   const rows = asArray<Appraisal>(appraisals);
   const employeeRows = asArray<Employee>(employees);
 
@@ -113,7 +118,47 @@ export default function Performance() {
                 : ""}
             </DialogDescription>
           </DialogHeader>
-          {detail ? <AppraisalDetailView appraisal={detail} /> : null}
+          {detail ? (
+            <AppraisalDetailView
+              appraisal={detail}
+              actor={user?.name ?? "HR"}
+              onAdvance={
+                detail.status === "pending"
+                  ? async (decision, note) => {
+                      const updated = await advanceAppraisal.mutateAsync({
+                        id: detail.id,
+                        data: { decision, actor: user?.name ?? "HR", note },
+                      });
+                      setDetail(updated);
+                      await queryClient.invalidateQueries({
+                        queryKey: ["/api/appraisals"],
+                      });
+                      toast.success(
+                        decision === "approve" ? "Step approved." : "Rejected.",
+                      );
+                    }
+                  : undefined
+              }
+              onArchive={
+                detail.status === "approved"
+                  ? async (signedFormReference) => {
+                      const updated = await archiveAppraisal.mutateAsync({
+                        id: detail.id,
+                        data: {
+                          signedFormReference,
+                          actor: user?.name ?? "HR",
+                        },
+                      });
+                      setDetail(updated);
+                      await queryClient.invalidateQueries({
+                        queryKey: ["/api/appraisals"],
+                      });
+                      toast.success("Appraisal archived.");
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -131,6 +176,7 @@ export default function Performance() {
                   <TableHead>Form</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Score</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Evaluator</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
@@ -138,13 +184,13 @@ export default function Performance() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                       Loading appraisals...
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                       No performance records found.
                     </TableCell>
                   </TableRow>
@@ -169,6 +215,9 @@ export default function Performance() {
                             <Star className="h-4 w-4 fill-emerald-500" />
                             {appraisal.totalScore}/{maxTotal}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={appraisal.status} />
                         </TableCell>
                         <TableCell>{appraisal.evaluator}</TableCell>
                         <TableCell>

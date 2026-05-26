@@ -169,6 +169,74 @@ export const appraisals = pgTable("appraisals", {
     .notNull()
     .default(""),
   signatories: jsonb("signatories").$type<AppraisalSignatory[]>().notNull(),
+  status: text("status").notNull().default("pending"),
+  currentStep: text("current_step").notNull().default("Employee Self-Assessment"),
+  steps: jsonb("steps").$type<ApprovalStep[]>().notNull(),
+  employeeSelfAssessment: text("employee_self_assessment").notNull().default(""),
+  appraiserComments: text("appraiser_comments").notNull().default(""),
+  departmentHeadComments: text("department_head_comments").notNull().default(""),
+  hrComments: text("hr_comments").notNull().default(""),
+  signedFormReference: text("signed_form_reference").notNull().default(""),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const trainingPlans = pgTable("training_plans", {
+  id: serial("id").primaryKey(),
+  year: integer("year").notNull(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  trainingHours: real("training_hours").notNull().default(0),
+  plannedDate: date("planned_date"),
+  department: text("department"),
+  employeeId: integer("employee_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  status: text("status").notNull().default("published"),
+  currentStep: text("current_step").notNull().default(""),
+  steps: jsonb("steps").$type<ApprovalStep[]>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const trainingEnrollments = pgTable("training_enrollments", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id")
+    .notNull()
+    .references(() => trainingPlans.id, { onDelete: "cascade" }),
+  employeeId: integer("employee_id")
+    .notNull()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("enrolled"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const trainingRecords = pgTable("training_records", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id")
+    .notNull()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  planId: integer("plan_id").references(() => trainingPlans.id, {
+    onDelete: "set null",
+  }),
+  enrollmentId: integer("enrollment_id").references(
+    () => trainingEnrollments.id,
+    { onDelete: "set null" },
+  ),
+  trainingName: text("training_name").notNull(),
+  trainingDate: date("training_date").notNull(),
+  trainingHours: real("training_hours").notNull(),
+  trainingType: text("training_type").notNull(),
+  completionStatus: text("completion_status").notNull().default("completed"),
+  remarks: text("remarks").notNull().default(""),
+  contractAgreement: text("contract_agreement").notNull().default(""),
+  fileReference: text("file_reference").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { FileText, Calendar, Clock, GraduationCap, ShieldAlert } from "lucide-react";
+import { EmployeeTrainingPanel } from "@/components/employee-training-panel";
 import {
   useListRequests,
   getListRequestsQueryKey,
@@ -153,15 +153,9 @@ export default function SelfService() {
             <Button onClick={submitRequest} className="w-full">Submit Loan</Button>
           </CardContent>
         </Card>
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2"><CardTitle className="text-base">Training</CardTitle></CardHeader>
-          <CardContent className="p-0 space-y-2">
-            <Input value={requestTitle} onChange={(e) => setRequestTitle(e.target.value)} placeholder="Training title" />
-            <Textarea value={requestDetails} onChange={(e) => setRequestDetails(e.target.value)} placeholder="Training details" />
-            <Button onClick={submitRequest} className="w-full">Submit Training</Button>
-          </CardContent>
-        </Card>
       </div>
+
+      <EmployeeTrainingPanel employeeId={employeeId} department={employee?.department} />
 
       <div className="grid md:grid-cols-2 gap-8">
         <Card>

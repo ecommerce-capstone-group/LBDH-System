@@ -15,7 +15,8 @@ import {
   Menu,
   HeartPulse,
   UserCircle,
-  Receipt
+  Receipt,
+  GraduationCap,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -35,6 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/leaves", label: "Leaves", icon: CalendarOff },
     { href: "/requests", label: "Requests", icon: FileText },
     { href: "/performance", label: "Performance", icon: TrendingUp },
+    { href: "/training", label: "Training", icon: GraduationCap },
     { href: "/offboarding", label: "Offboarding", icon: UserMinus },
     { href: "/reports", label: "Reports", icon: PieChart },
   ];

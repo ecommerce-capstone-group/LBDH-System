@@ -7,6 +7,9 @@ import {
   leaves,
   requests,
   appraisals,
+  trainingPlans,
+  trainingRecords,
+  trainingEnrollments,
   grievances,
   pool,
 } from "@workspace/db";
@@ -21,6 +24,24 @@ import {
   NON_SUPERVISORY_TEMPLATE,
   SUPERVISORY_TEMPLATE,
 } from "@workspace/db/appraisal-templates";
+
+function archivedAppraisalSteps(templateType: "non_supervisory" | "supervisory") {
+  const names =
+    templateType === "non_supervisory"
+      ? [
+          "Employee Self-Assessment",
+          "Appraiser Evaluation",
+          "Department Head Review",
+          "HR Final Review",
+        ]
+      : ["Employee Self-Assessment", "Appraiser Evaluation", "HR Final Review"];
+  return names.map((name) => ({
+    name,
+    status: "approved" as const,
+    actor: "system",
+    timestamp: new Date().toISOString(),
+  }));
+}
 
 function buildScores(
   template: typeof NON_SUPERVISORY_TEMPLATE,
@@ -398,6 +419,14 @@ async function run() {
         { role: "Department Head", name: "Dr. Reyes" },
         { role: "HR", name: "Liza Bautista" },
       ],
+      status: "archived",
+      currentStep: "Archived",
+      steps: archivedAppraisalSteps("non_supervisory"),
+      employeeSelfAssessment: "I met all clinical expectations for the period.",
+      appraiserComments: "Strong performer; recommend regularization.",
+      departmentHeadComments: "Endorsed for continued employment.",
+      hrComments: "Filed and archived.",
+      signedFormReference: "HR-FILE-2026-NS-001",
     },
     {
       employeeId: emps[4]!.id,
@@ -425,6 +454,95 @@ async function run() {
         { role: "Appraiser", name: "HR Director" },
         { role: "HR", name: "Liza Bautista" },
       ],
+      status: "archived",
+      currentStep: "Archived",
+      steps: archivedAppraisalSteps("supervisory"),
+      employeeSelfAssessment: "Leadership goals met for the review period.",
+      appraiserComments: "Effective HR coordination.",
+      hrComments: "Archived in personnel file.",
+      signedFormReference: "HR-FILE-2026-SUP-001",
+    },
+  ]);
+
+  const year = new Date().getFullYear();
+  const [dohPlan, hospitalPlan] = await db
+    .insert(trainingPlans)
+    .values([
+      {
+        year,
+        category: "doh_initiated",
+        title: "DOH Infection Prevention & Control Refresher",
+        description: "Mandatory DOH compliance module for clinical staff.",
+        trainingHours: 8,
+        plannedDate: addDays(30),
+        status: "published",
+        currentStep: "",
+        steps: [],
+      },
+      {
+        year,
+        category: "hospital_required",
+        title: "BLS / ACLS Recertification",
+        description: "Hospital-wide life support recertification.",
+        trainingHours: 16,
+        plannedDate: addDays(45),
+        status: "published",
+        currentStep: "",
+        steps: [],
+      },
+      {
+        year,
+        category: "departmental_request",
+        title: "ICU Ventilator Management Workshop",
+        description: "Requested by ICU for advanced ventilator skills.",
+        trainingHours: 12,
+        plannedDate: addDays(60),
+        department: "ICU",
+        employeeId: emps[0]!.id,
+        status: "pending",
+        currentStep: "Department Head",
+        steps: [
+          {
+            name: "Unit Head",
+            status: "approved",
+            actor: "Unit Head",
+            timestamp: new Date().toISOString(),
+          },
+          { name: "Department Head", status: "pending" },
+          { name: "HR", status: "pending" },
+        ],
+      },
+    ])
+    .returning();
+
+  await db.insert(trainingEnrollments).values({
+    planId: hospitalPlan!.id,
+    employeeId: emps[0]!.id,
+    status: "enrolled",
+  });
+
+  await db.insert(trainingRecords).values([
+    {
+      employeeId: emps[0]!.id,
+      planId: dohPlan!.id,
+      trainingName: "DOH IPC Refresher 2025",
+      trainingDate: addDays(-120),
+      trainingHours: 8,
+      trainingType: "doh_initiated",
+      completionStatus: "completed",
+      remarks: "Completed with certificate on file.",
+      contractAgreement: "N/A — mandatory compliance",
+      fileReference: "TRAIN-CERT-2025-IPC-001",
+    },
+    {
+      employeeId: emps[1]!.id,
+      trainingName: "Emergency Trauma Update",
+      trainingDate: addDays(-60),
+      trainingHours: 6,
+      trainingType: "hospital_required",
+      completionStatus: "completed",
+      remarks: "ER department in-service.",
+      fileReference: "TRAIN-ER-2025-06",
     },
   ]);
 
