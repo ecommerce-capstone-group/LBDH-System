@@ -69,10 +69,9 @@ export default function Training() {
   const [planDate, setPlanDate] = useState("");
   const [planDept, setPlanDept] = useState("");
   const [recEmployeeId, setRecEmployeeId] = useState("");
-  const [recName, setRecName] = useState("");
+  const [recPlanId, setRecPlanId] = useState("");
   const [recDate, setRecDate] = useState("");
   const [recHours, setRecHours] = useState("8");
-  const [recType, setRecType] = useState<TrainingCategory>("hospital_required");
   const [recRemarks, setRecRemarks] = useState("");
   const [recContract, setRecContract] = useState("");
   const [recFile, setRecFile] = useState("");
@@ -98,6 +97,8 @@ export default function Training() {
   const planRows = asArray<TrainingPlan>(plans);
   const recordRows = asArray<TrainingRecord>(records);
   const employeeRows = asArray<Employee>(employees);
+  const selectedRecordPlan =
+    recPlanId === "" ? null : planRows.find((p) => p.id === Number(recPlanId)) ?? null;
 
   const grouped = {
     doh_initiated: planRows.filter((p) => p.category === "doh_initiated"),
@@ -143,18 +144,19 @@ export default function Training() {
       toast.error("Select an employee.");
       return;
     }
-    if (!recName.trim() || !recDate) {
-      toast.error("Training name and date are required.");
+    if (!selectedRecordPlan || !recDate) {
+      toast.error("Training plan and date are required.");
       return;
     }
     try {
       await createRecord.mutateAsync({
         data: {
           employeeId: eid,
-          trainingName: recName.trim(),
+          planId: selectedRecordPlan.id,
+          trainingName: selectedRecordPlan.title,
           trainingDate: recDate,
           trainingHours: Number(recHours) || 0,
-          trainingType: recType,
+          trainingType: selectedRecordPlan.category,
           remarks: recRemarks.trim(),
           contractAgreement: recContract.trim(),
           fileReference: recFile.trim(),
@@ -341,6 +343,7 @@ export default function Training() {
               >
                 <option value="doh_initiated">DOH / compliance</option>
                 <option value="hospital_required">Hospital-required</option>
+                <option value="departmental_request">Department-requested</option>
               </select>
             </div>
             <div className="grid gap-2">
@@ -403,7 +406,23 @@ export default function Training() {
             </div>
             <div className="grid gap-2">
               <Label>Training name *</Label>
-              <Input value={recName} onChange={(e) => setRecName(e.target.value)} />
+              <select
+                className={selectClass}
+                value={recPlanId}
+                onChange={(e) => setRecPlanId(e.target.value)}
+              >
+                <option value="">Select annual plan…</option>
+                {planRows.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.title} /{p.trainingHours} hours
+                  </option>
+                ))}
+              </select>
+              {selectedRecordPlan ? (
+                <p className="text-xs text-gray-500">
+                  Total plan hours: /{selectedRecordPlan.trainingHours} hours
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -411,22 +430,18 @@ export default function Training() {
                 <Input type="date" value={recDate} onChange={(e) => setRecDate(e.target.value)} />
               </div>
               <div className="grid gap-2">
-                <Label>Hours *</Label>
+                <Label>Hours completed today *</Label>
                 <Input type="number" value={recHours} onChange={(e) => setRecHours(e.target.value)} />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label>Type</Label>
-              <select
-                className={selectClass}
-                value={recType}
-                onChange={(e) => setRecType(e.target.value as TrainingCategory)}
-              >
-                <option value="doh_initiated">DOH initiated</option>
-                <option value="hospital_required">Hospital required</option>
-                <option value="departmental_request">Departmental request</option>
-              </select>
-            </div>
+            {selectedRecordPlan ? (
+              <div className="grid gap-2">
+                <Label>Type</Label>
+                <p className="text-sm text-gray-600 capitalize">
+                  {selectedRecordPlan.category.replace(/_/g, " ")}
+                </p>
+              </div>
+            ) : null}
             <div className="grid gap-2">
               <Label>Remarks</Label>
               <Textarea value={recRemarks} onChange={(e) => setRecRemarks(e.target.value)} rows={2} />
