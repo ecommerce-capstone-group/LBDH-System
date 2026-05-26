@@ -128,15 +128,47 @@ export const requests = pgTable("requests", {
     .defaultNow(),
 });
 
+export type AppraisalCriterionScore = {
+  criterionId: string;
+  groupId: string;
+  label: string;
+  score: number;
+};
+
+export type AppraisalSignatory = {
+  role: string;
+  name: string;
+};
+
 export const appraisals = pgTable("appraisals", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id")
     .notNull()
     .references(() => employees.id, { onDelete: "cascade" }),
-  kind: text("kind").notNull(),
-  score: real("score").notNull(),
-  notes: text("notes").notNull(),
+  templateType: text("template_type").notNull(),
+  appraisalType: text("appraisal_type").notNull(),
+  employeeName: text("employee_name").notNull(),
+  department: text("department").notNull(),
+  position: text("position").notNull(),
+  hireDate: date("hire_date"),
+  appraisalPeriod: text("appraisal_period").notNull(),
   evaluator: text("evaluator").notNull(),
+  evaluatorPosition: text("evaluator_position").notNull(),
+  appraisalDate: date("appraisal_date"),
+  strengths: text("strengths").notNull().default(""),
+  areasForImprovement: text("areas_for_improvement").notNull().default(""),
+  suggestedActionPlan: text("suggested_action_plan").notNull().default(""),
+  shortTermGoals: text("short_term_goals").notNull().default(""),
+  longTermGoals: text("long_term_goals").notNull().default(""),
+  criterionScores: jsonb("criterion_scores")
+    .$type<AppraisalCriterionScore[]>()
+    .notNull(),
+  totalScore: real("total_score").notNull(),
+  recommendation: text("recommendation").notNull().default(""),
+  employeeAcknowledgement: text("employee_acknowledgement")
+    .notNull()
+    .default(""),
+  signatories: jsonb("signatories").$type<AppraisalSignatory[]>().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

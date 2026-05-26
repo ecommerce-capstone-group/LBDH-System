@@ -10,7 +10,35 @@ import {
   grievances,
   pool,
 } from "@workspace/db";
-import type { Requirement, RequirementMatch, ApprovalStep } from "@workspace/db";
+import type {
+  Requirement,
+  RequirementMatch,
+  ApprovalStep,
+  AppraisalCriterionScore,
+} from "@workspace/db";
+import {
+  allCriteriaForTemplate,
+  NON_SUPERVISORY_TEMPLATE,
+  SUPERVISORY_TEMPLATE,
+} from "@workspace/db/appraisal-templates";
+
+function buildScores(
+  template: typeof NON_SUPERVISORY_TEMPLATE,
+  ratings: number[],
+): AppraisalCriterionScore[] {
+  const criteria = allCriteriaForTemplate(template);
+  return criteria.map((c, i) => {
+    const group = template.criterionGroups.find((g) =>
+      g.criteria.some((cr) => cr.id === c.id),
+    )!;
+    return {
+      criterionId: c.id,
+      groupId: group.id,
+      label: c.label,
+      score: ratings[i] ?? template.maxScore - 2,
+    };
+  });
+}
 
 async function run() {
   const existing = await db.select().from(employees).limit(1);
@@ -333,20 +361,70 @@ async function run() {
     },
   ]);
 
+  const nsScores = buildScores(
+    NON_SUPERVISORY_TEMPLATE,
+    [13, 12, 14, 13, 12, 13, 14, 13, 12],
+  );
+  const supScores = buildScores(
+    SUPERVISORY_TEMPLATE,
+    [8, 9, 8, 9, 8, 9, 8, 9, 8, 9, 8, 9, 8, 9],
+  );
+
   await db.insert(appraisals).values([
     {
       employeeId: emps[0]!.id,
-      kind: "Annual",
-      score: 4.5,
-      notes: "Excellent ICU performance, strong patient advocacy.",
-      evaluator: "Dr. Ramos (ICU Head)",
+      templateType: "non_supervisory",
+      appraisalType: "3rd month",
+      employeeName: emps[0]!.name,
+      department: emps[0]!.department,
+      position: emps[0]!.role,
+      hireDate: addDays(-90),
+      appraisalPeriod: "Jan – Mar 2026",
+      evaluator: "Dr. Ana Ramos",
+      evaluatorPosition: "ICU Head Nurse",
+      appraisalDate: addDays(0),
+      strengths: "Excellent ICU performance, strong patient advocacy.",
+      areasForImprovement: "Documentation timeliness during peak shifts.",
+      suggestedActionPlan: "Peer shadowing on charting best practices.",
+      shortTermGoals: "Complete IV therapy refresher within 6 months.",
+      longTermGoals: "Pursue charge nurse certification within 2 years.",
+      criterionScores: nsScores,
+      totalScore: nsScores.reduce((s, c) => s + c.score, 0),
+      recommendation: "Recommend for regularization.",
+      employeeAcknowledgement: "I acknowledge this evaluation.",
+      signatories: [
+        { role: "Employee", name: emps[0]!.name },
+        { role: "Appraiser", name: "Dr. Ana Ramos" },
+        { role: "Department Head", name: "Dr. Reyes" },
+        { role: "HR", name: "Liza Bautista" },
+      ],
     },
     {
-      employeeId: emps[1]!.id,
-      kind: "Regularization",
-      score: 4.2,
-      notes: "Adapted quickly to ER pace; shows leadership potential.",
-      evaluator: "Dr. Cruz (ER Chief)",
+      employeeId: emps[4]!.id,
+      templateType: "supervisory",
+      appraisalType: "5th month",
+      employeeName: emps[4]!.name,
+      department: emps[4]!.department,
+      position: emps[4]!.role,
+      hireDate: addDays(-150),
+      appraisalPeriod: "Nov 2025 – Mar 2026",
+      evaluator: "HR Director",
+      evaluatorPosition: "Director of Human Resources",
+      appraisalDate: addDays(0),
+      strengths: "Strong coordination across departments.",
+      areasForImprovement: "Delegate more operational tasks to team leads.",
+      suggestedActionPlan: "Monthly leadership coaching sessions.",
+      shortTermGoals: "Roll out updated onboarding checklist.",
+      longTermGoals: "Lead HRIS implementation project.",
+      criterionScores: supScores,
+      totalScore: supScores.reduce((s, c) => s + c.score, 0),
+      recommendation: "Continue in current supervisory role.",
+      employeeAcknowledgement: "Reviewed and acknowledged.",
+      signatories: [
+        { role: "Supervisor/Manager", name: "Hospital Administrator" },
+        { role: "Appraiser", name: "HR Director" },
+        { role: "HR", name: "Liza Bautista" },
+      ],
     },
   ]);
 

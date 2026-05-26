@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts"
+    "./schema": "./src/schema/index.ts",
+    "./appraisal-templates": "./src/appraisal-templates.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

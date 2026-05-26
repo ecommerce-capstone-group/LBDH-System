@@ -40,12 +40,12 @@ import type {
   LeaveInput,
   LeaveRequest,
   ListApplicantsParams,
-  ListJobsParams,
   ListAppraisalsParams,
   ListAttendanceParams,
   ListEmployeesParams,
   ListExpiringLicensesParams,
   ListGrievancesParams,
+  ListJobsParams,
   ListLeavesParams,
   ListRequestsParams,
   Offboarding,
@@ -743,7 +743,11 @@ export const getListJobsQueryOptions = <
 >(
   params?: ListJobsParams,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listJobs>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listJobs>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
   },
 ) => {
@@ -773,7 +777,11 @@ export function useListJobs<
 >(
   params?: ListJobsParams,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listJobs>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listJobs>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {

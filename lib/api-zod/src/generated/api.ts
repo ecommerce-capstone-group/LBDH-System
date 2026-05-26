@@ -141,6 +141,10 @@ export const DeleteEmployeeParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const ListJobsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+});
+
 export const ListJobsResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
@@ -237,10 +241,6 @@ export const DeleteJobParams = zod.object({
 
 export const ListApplicantsQueryParams = zod.object({
   jobId: zod.coerce.number().optional(),
-});
-
-export const ListJobsQueryParams = zod.object({
-  status: zod.string().optional(),
 });
 
 export const ListApplicantsResponseItem = zod.object({
@@ -503,22 +503,77 @@ export const ListAppraisalsQueryParams = zod.object({
 export const ListAppraisalsResponseItem = zod.object({
   id: zod.number(),
   employeeId: zod.number(),
-  kind: zod
+  templateType: zod.enum(["non_supervisory", "supervisory"]),
+  appraisalType: zod
     .string()
-    .describe("Regularization | 3rd Month | 4th Month | Annual | Promotion"),
-  score: zod.number(),
-  notes: zod.string(),
+    .describe("2nd month | 3rd month | 5th month | Other"),
+  employeeName: zod.string(),
+  department: zod.string(),
+  position: zod.string(),
+  hireDate: zod.string().nullish(),
+  appraisalPeriod: zod.string(),
   evaluator: zod.string(),
+  evaluatorPosition: zod.string(),
+  appraisalDate: zod.string().nullish(),
+  strengths: zod.string().optional(),
+  areasForImprovement: zod.string().optional(),
+  suggestedActionPlan: zod.string().optional(),
+  shortTermGoals: zod.string().optional(),
+  longTermGoals: zod.string().optional(),
+  criterionScores: zod.array(
+    zod.object({
+      criterionId: zod.string(),
+      groupId: zod.string(),
+      label: zod.string(),
+      score: zod.number(),
+    }),
+  ),
+  totalScore: zod.number(),
+  recommendation: zod.string().optional(),
+  employeeAcknowledgement: zod.string().optional(),
+  signatories: zod.array(
+    zod.object({
+      role: zod.string(),
+      name: zod.string(),
+    }),
+  ),
   createdAt: zod.string(),
 });
 export const ListAppraisalsResponse = zod.array(ListAppraisalsResponseItem);
 
 export const CreateAppraisalBody = zod.object({
   employeeId: zod.number(),
-  kind: zod.string(),
-  score: zod.number(),
-  notes: zod.string(),
+  templateType: zod.enum(["non_supervisory", "supervisory"]),
+  appraisalType: zod.string(),
+  employeeName: zod.string(),
+  department: zod.string(),
+  position: zod.string(),
+  hireDate: zod.string().nullish(),
+  appraisalPeriod: zod.string(),
   evaluator: zod.string(),
+  evaluatorPosition: zod.string(),
+  appraisalDate: zod.string().nullish(),
+  strengths: zod.string().nullish(),
+  areasForImprovement: zod.string().nullish(),
+  suggestedActionPlan: zod.string().nullish(),
+  shortTermGoals: zod.string().nullish(),
+  longTermGoals: zod.string().nullish(),
+  criterionScores: zod.array(
+    zod.object({
+      criterionId: zod.string(),
+      groupId: zod.string(),
+      label: zod.string(),
+      score: zod.number(),
+    }),
+  ),
+  recommendation: zod.string().nullish(),
+  employeeAcknowledgement: zod.string().nullish(),
+  signatories: zod.array(
+    zod.object({
+      role: zod.string(),
+      name: zod.string(),
+    }),
+  ),
 });
 
 export const ListGrievancesQueryParams = zod.object({

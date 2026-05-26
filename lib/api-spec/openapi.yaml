@@ -795,27 +795,113 @@ components:
         title: { type: string }
         details: { type: string }
 
+    AppraisalTemplateType:
+      type: string
+      enum: [non_supervisory, supervisory]
+
+    AppraisalCriterionScore:
+      type: object
+      required: [criterionId, groupId, label, score]
+      properties:
+        criterionId: { type: string }
+        groupId: { type: string }
+        label: { type: string }
+        score: { type: number }
+
+    AppraisalSignatory:
+      type: object
+      required: [role, name]
+      properties:
+        role: { type: string }
+        name: { type: string }
+
     Appraisal:
       type: object
-      required: [id, employeeId, kind, score, notes, evaluator, createdAt]
+      required:
+        - id
+        - employeeId
+        - templateType
+        - appraisalType
+        - employeeName
+        - department
+        - position
+        - appraisalPeriod
+        - evaluator
+        - evaluatorPosition
+        - criterionScores
+        - totalScore
+        - signatories
+        - createdAt
       properties:
         id: { type: integer }
         employeeId: { type: integer }
-        kind: { type: string, description: "Regularization | 3rd Month | 4th Month | Annual | Promotion" }
-        score: { type: number }
-        notes: { type: string }
+        templateType: { $ref: "#/components/schemas/AppraisalTemplateType" }
+        appraisalType:
+          type: string
+          description: "2nd month | 3rd month | 5th month | Other"
+        employeeName: { type: string }
+        department: { type: string }
+        position: { type: string }
+        hireDate: { type: string, nullable: true }
+        appraisalPeriod: { type: string }
         evaluator: { type: string }
+        evaluatorPosition: { type: string }
+        appraisalDate: { type: string, nullable: true }
+        strengths: { type: string }
+        areasForImprovement: { type: string }
+        suggestedActionPlan: { type: string }
+        shortTermGoals: { type: string }
+        longTermGoals: { type: string }
+        criterionScores:
+          type: array
+          items: { $ref: "#/components/schemas/AppraisalCriterionScore" }
+        totalScore: { type: number }
+        recommendation: { type: string }
+        employeeAcknowledgement: { type: string }
+        signatories:
+          type: array
+          items: { $ref: "#/components/schemas/AppraisalSignatory" }
         createdAt: { type: string }
 
     AppraisalInput:
       type: object
-      required: [employeeId, kind, score, notes, evaluator]
+      required:
+        - employeeId
+        - templateType
+        - appraisalType
+        - employeeName
+        - department
+        - position
+        - appraisalPeriod
+        - evaluator
+        - evaluatorPosition
+        - criterionScores
+        - signatories
       properties:
         employeeId: { type: integer }
-        kind: { type: string }
-        score: { type: number }
-        notes: { type: string }
+        templateType: { $ref: "#/components/schemas/AppraisalTemplateType" }
+        appraisalType: { type: string }
+        employeeName: { type: string }
+        department: { type: string }
+        position: { type: string }
+        hireDate: { type: string, nullable: true }
+        appraisalPeriod: { type: string }
         evaluator: { type: string }
+        evaluatorPosition: { type: string }
+        appraisalDate: { type: string, nullable: true }
+        strengths: { type: string, nullable: true }
+        areasForImprovement: { type: string, nullable: true }
+        suggestedActionPlan: { type: string, nullable: true }
+        shortTermGoals: { type: string, nullable: true }
+        longTermGoals: { type: string, nullable: true }
+        criterionScores:
+          type: array
+          items: { $ref: "#/components/schemas/AppraisalCriterionScore" }
+        recommendation: { type: string, nullable: true }
+        employeeAcknowledgement: { type: string, nullable: true }
+        signatories:
+          type: array
+          items: { $ref: "#/components/schemas/AppraisalSignatory" }
 
     Grievance:
       type: object

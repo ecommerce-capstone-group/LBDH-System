@@ -90,10 +90,6 @@ export interface RequirementMatch {
   weight: number;
 }
 
-export interface ListJobsParams {
-  status?: string;
-}
-
 export interface Applicant {
   id: number;
   jobId: number;
@@ -229,23 +225,74 @@ export interface HrRequestInput {
   details: string;
 }
 
+export type AppraisalTemplateType =
+  (typeof AppraisalTemplateType)[keyof typeof AppraisalTemplateType];
+
+export const AppraisalTemplateType = {
+  non_supervisory: "non_supervisory",
+  supervisory: "supervisory",
+} as const;
+
+export interface AppraisalCriterionScore {
+  criterionId: string;
+  groupId: string;
+  label: string;
+  score: number;
+}
+
+export interface AppraisalSignatory {
+  role: string;
+  name: string;
+}
+
 export interface Appraisal {
   id: number;
   employeeId: number;
-  /** Regularization | 3rd Month | 4th Month | Annual | Promotion */
-  kind: string;
-  score: number;
-  notes: string;
+  templateType: AppraisalTemplateType;
+  /** 2nd month | 3rd month | 5th month | Other */
+  appraisalType: string;
+  employeeName: string;
+  department: string;
+  position: string;
+  hireDate?: string | null;
+  appraisalPeriod: string;
   evaluator: string;
+  evaluatorPosition: string;
+  appraisalDate?: string | null;
+  strengths?: string;
+  areasForImprovement?: string;
+  suggestedActionPlan?: string;
+  shortTermGoals?: string;
+  longTermGoals?: string;
+  criterionScores: AppraisalCriterionScore[];
+  totalScore: number;
+  recommendation?: string;
+  employeeAcknowledgement?: string;
+  signatories: AppraisalSignatory[];
   createdAt: string;
 }
 
 export interface AppraisalInput {
   employeeId: number;
-  kind: string;
-  score: number;
-  notes: string;
+  templateType: AppraisalTemplateType;
+  appraisalType: string;
+  employeeName: string;
+  department: string;
+  position: string;
+  hireDate?: string | null;
+  appraisalPeriod: string;
   evaluator: string;
+  evaluatorPosition: string;
+  appraisalDate?: string | null;
+  strengths?: string | null;
+  areasForImprovement?: string | null;
+  suggestedActionPlan?: string | null;
+  shortTermGoals?: string | null;
+  longTermGoals?: string | null;
+  criterionScores: AppraisalCriterionScore[];
+  recommendation?: string | null;
+  employeeAcknowledgement?: string | null;
+  signatories: AppraisalSignatory[];
 }
 
 export interface Grievance {
@@ -301,6 +348,13 @@ export type ListEmployeesParams = {
 
 export type ListExpiringLicensesParams = {
   days?: number;
+};
+
+export type ListJobsParams = {
+  /**
+   * active | closed
+   */
+  status?: string;
 };
 
 export type ListApplicantsParams = {

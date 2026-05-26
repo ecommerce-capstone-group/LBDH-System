@@ -5,11 +5,29 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
+import type { AppraisalCriterionScore } from "./appraisalCriterionScore";
+import type { AppraisalSignatory } from "./appraisalSignatory";
+import type { AppraisalTemplateType } from "./appraisalTemplateType";
 
 export interface AppraisalInput {
   employeeId: number;
-  kind: string;
-  score: number;
-  notes: string;
+  templateType: AppraisalTemplateType;
+  appraisalType: string;
+  employeeName: string;
+  department: string;
+  position: string;
+  hireDate?: string | null;
+  appraisalPeriod: string;
   evaluator: string;
+  evaluatorPosition: string;
+  appraisalDate?: string | null;
+  strengths?: string | null;
+  areasForImprovement?: string | null;
+  suggestedActionPlan?: string | null;
+  shortTermGoals?: string | null;
+  longTermGoals?: string | null;
+  criterionScores: AppraisalCriterionScore[];
+  recommendation?: string | null;
+  employeeAcknowledgement?: string | null;
+  signatories: AppraisalSignatory[];
 }
