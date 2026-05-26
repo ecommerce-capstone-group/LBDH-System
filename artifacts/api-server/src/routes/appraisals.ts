@@ -15,6 +15,50 @@ import {
 
 const router: IRouter = Router();
 
+function hasText(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasSignatory(
+  signatories: unknown,
+  role: "Department Head" | "HR" | "Employee" | "Supervisor/Manager",
+): boolean {
+  if (!Array.isArray(signatories)) return false;
+  return signatories.some(
+    (s) =>
+      s &&
+      typeof s === "object" &&
+      (s as { role?: unknown }).role === role &&
+      hasText((s as { name?: unknown }).name),
+  );
+}
+
+function canArchiveAppraisal(existing: (typeof appraisals.$inferSelect)): boolean {
+  const selfAssessmentDone = hasText(existing.employeeSelfAssessment);
+  const evaluationDone = Array.isArray(existing.criterionScores) && existing.criterionScores.length > 0;
+  const departmentHeadDone =
+    hasText(existing.departmentHeadComments) ||
+    hasSignatory(existing.signatories, "Department Head");
+  const hrReviewDone =
+    hasText(existing.hrComments) || hasSignatory(existing.signatories, "HR");
+  const acknowledgementDone =
+    hasText(existing.employeeAcknowledgement) ||
+    hasSignatory(existing.signatories, "Employee") ||
+    hasSignatory(existing.signatories, "Supervisor/Manager");
+
+  if (existing.templateType === "non_supervisory") {
+    return (
+      selfAssessmentDone &&
+      evaluationDone &&
+      departmentHeadDone &&
+      hrReviewDone &&
+      acknowledgementDone
+    );
+  }
+
+  return selfAssessmentDone && evaluationDone && hrReviewDone && acknowledgementDone;
+}
+
 router.get("/appraisals", async (req, res) => {
   try {
     const employeeId = req.query.employeeId
@@ -177,7 +221,10 @@ router.post("/appraisals/:id/archive", async (req, res) => {
       .from(appraisals)
       .where(eq(appraisals.id, id));
     if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.status !== "approved") {
+    if (existing.status === "archived") {
+      return res.status(400).json({ error: "Appraisal already archived." });
+    }
+    if (!canArchiveAppraisal(existing)) {
       return res.status(400).json({
         error:
           "Complete all review and signature steps before archiving to employee history.",
