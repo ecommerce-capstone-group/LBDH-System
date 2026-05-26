@@ -1,43 +1,21 @@
-import {
-  useGetEmployee,
-  getGetEmployeeQueryKey,
-  useListAppraisals,
-  getListAppraisalsQueryKey,
-  type Appraisal,
-} from "@workspace/api-client-react";
-import { useParams } from "wouter";
+import { useGetEmployee, getGetEmployeeQueryKey } from "@workspace/api-client-react";
+import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { AppraisalDetailView } from "@/components/appraisal-form";
-import { APPRAISAL_TEMPLATES, maxPossibleTotal } from "@workspace/db/appraisal-templates";
-import { Mail, Phone, Building, Briefcase, Award, Star } from "lucide-react";
-import { isRecord, asArray } from "@/lib/api-guards";
-import { useState } from "react";
+import { EmployeeReadPanel } from "@/components/employee-read-panel";
+import { EmployeeAnalyticsPanel } from "@/components/employee-analytics-panel";
+import { Mail, Phone, Building, Briefcase, Award, PlusCircle } from "lucide-react";
+import { isRecord } from "@/lib/api-guards";
 import { Button } from "@/components/ui/button";
-import { Eye } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 export default function EmployeeDetail() {
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
-  const [detail, setDetail] = useState<Appraisal | null>(null);
 
   const { data: employee, isLoading } = useGetEmployee(id, {
-    query: { enabled: !!id, queryKey: getGetEmployeeQueryKey(id) }
+    query: { enabled: !!id, queryKey: getGetEmployeeQueryKey(id) },
   });
-
-  const { data: appraisals, isLoading: appraisalsLoading } = useListAppraisals(
-    { employeeId: id },
-    { query: { enabled: !!id, queryKey: getListAppraisalsQueryKey({ employeeId: id }) } },
-  );
-  const appraisalRows = asArray<Appraisal>(appraisals);
 
   if (isLoading) return <div className="p-6">Loading profile...</div>;
   if (!employee || !isRecord(employee) || typeof employee.name !== "string") {
@@ -48,7 +26,9 @@ export default function EmployeeDetail() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">{employee.name}</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+            Employee Management — {employee.name}
+          </h2>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-gray-500">{employee.role}</span>
             <span className="text-gray-300">•</span>
@@ -56,21 +36,31 @@ export default function EmployeeDetail() {
             <StatusBadge status={employee.status} className="ml-2" />
           </div>
         </div>
+        <Button type="button" variant="outline" asChild>
+          <Link href={`/incidents?employeeId=${id}`}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Record incident
+          </Link>
+        </Button>
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
+      <Tabs defaultValue="read" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto border-b rounded-none h-auto p-0 bg-transparent">
-          {["Profile", "Attendance", "Leaves", "Appraisals", "Grievances", "Documents"].map((tab) => (
+          {[
+            { value: "profile", label: "Profile" },
+            { value: "read", label: "Read" },
+            { value: "analytics", label: "Analytics" },
+          ].map((tab) => (
             <TabsTrigger
-              key={tab.toLowerCase()}
-              value={tab.toLowerCase()}
+              key={tab.value}
+              value={tab.value}
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
             >
-              {tab}
+              {tab.label}
             </TabsTrigger>
           ))}
         </TabsList>
-        
+
         <TabsContent value="profile" className="mt-6 space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -110,7 +100,11 @@ export default function EmployeeDetail() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Expiry Date</p>
-                      <p className="text-sm">{employee.licenseExpiry ? new Date(employee.licenseExpiry).toLocaleDateString() : "N/A"}</p>
+                      <p className="text-sm">
+                        {employee.licenseExpiry
+                          ? new Date(employee.licenseExpiry).toLocaleDateString()
+                          : "N/A"}
+                      </p>
                     </div>
                   </>
                 ) : (
@@ -120,78 +114,17 @@ export default function EmployeeDetail() {
             </Card>
           </div>
         </TabsContent>
-        <TabsContent value="attendance" className="mt-6">
-          <Card>
-            <CardContent className="pt-6 text-center text-gray-500 py-12">
-              Attendance records will appear here.
-            </CardContent>
-          </Card>
+
+        <TabsContent value="read" className="mt-6">
+          <EmployeeReadPanel employeeId={id} />
         </TabsContent>
 
-        <TabsContent value="appraisals" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Appraisals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {appraisalsLoading ? (
-                <p className="text-center text-gray-500 py-8">Loading appraisals…</p>
-              ) : appraisalRows.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
-                  No appraisals on file for this employee.
-                </p>
-              ) : (
-                <ul className="divide-y">
-                  {appraisalRows.map((a) => {
-                    const template = APPRAISAL_TEMPLATES[a.templateType];
-                    const maxTotal = maxPossibleTotal(template);
-                    return (
-                      <li
-                        key={a.id}
-                        className="flex items-center justify-between py-3 gap-4"
-                      >
-                        <div>
-                          <p className="font-medium">{a.appraisalType}</p>
-                          <p className="text-sm text-gray-500">
-                            {template.label} ·{" "}
-                            {new Date(a.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="flex items-center gap-1 text-emerald-600 font-medium text-sm">
-                            <Star className="h-4 w-4 fill-emerald-500" />
-                            {a.totalScore}/{maxTotal}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setDetail(a)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="analytics" className="mt-6">
+          <EmployeeAnalyticsPanel
+            employeeId={id}
+            title={`Analytics — ${employee.name}`}
+          />
         </TabsContent>
-
-        <Dialog open={!!detail} onOpenChange={(v) => !v && setDetail(null)}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Appraisal details</DialogTitle>
-              <DialogDescription>
-                {detail ? `${detail.appraisalType} — ${detail.appraisalPeriod}` : ""}
-              </DialogDescription>
-            </DialogHeader>
-            {detail ? <AppraisalDetailView appraisal={detail} /> : null}
-          </DialogContent>
-        </Dialog>
       </Tabs>
     </div>
   );

@@ -242,6 +242,26 @@ export const trainingRecords = pgTable("training_records", {
     .defaultNow(),
 });
 
+export const employeeIncidents = pgTable("employee_incidents", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id")
+    .notNull()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  incidentDate: date("incident_date").notNull(),
+  policyViolated: text("policy_violated").notNull(),
+  violationDescription: text("violation_description").notNull(),
+  department: text("department").notNull().default(""),
+  actionTaken: text("action_taken").notNull(),
+  actionDetails: text("action_details").notNull().default(""),
+  status: text("status").notNull().default("ongoing"),
+  hrRemarks: text("hr_remarks").notNull().default(""),
+  approvingAuthority: text("approving_authority").notNull().default(""),
+  relatedAppraisalPeriod: text("related_appraisal_period"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const grievances = pgTable("grievances", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id")

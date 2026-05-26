@@ -907,6 +907,120 @@ export const CreateTrainingRecordBody = zod.object({
   fileReference: zod.string().nullish(),
 });
 
+export const ListIncidentsQueryParams = zod.object({
+  employeeId: zod.coerce.number().optional(),
+  status: zod.enum(["ongoing", "resolved"]).optional(),
+});
+
+export const ListIncidentsResponseItem = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  incidentDate: zod.string(),
+  policyViolated: zod.string(),
+  violationDescription: zod.string(),
+  department: zod.string(),
+  actionTaken: zod.enum(["oral_reprimand", "warning", "suspension", "other"]),
+  actionDetails: zod.string().optional(),
+  status: zod.enum(["ongoing", "resolved"]),
+  hrRemarks: zod.string().optional(),
+  approvingAuthority: zod.string().optional(),
+  relatedAppraisalPeriod: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListIncidentsResponse = zod.array(ListIncidentsResponseItem);
+
+export const CreateIncidentBody = zod.object({
+  employeeId: zod.number(),
+  incidentDate: zod.string(),
+  policyViolated: zod.string(),
+  violationDescription: zod.string(),
+  department: zod.string().nullish(),
+  actionTaken: zod.enum(["oral_reprimand", "warning", "suspension", "other"]),
+  actionDetails: zod.string().nullish(),
+  status: zod.enum(["ongoing", "resolved"]).nullish(),
+  hrRemarks: zod.string().nullish(),
+  approvingAuthority: zod.string().nullish(),
+  relatedAppraisalPeriod: zod.string().nullish(),
+});
+
+export const GetIncidentAnalyticsQueryParams = zod.object({
+  employeeId: zod.coerce.number().optional(),
+});
+
+export const GetIncidentAnalyticsResponse = zod.object({
+  activeIncidents: zod.number(),
+  resolvedIncidents: zod.number(),
+  repeatedViolators: zod.array(
+    zod.object({
+      employeeId: zod.number(),
+      employeeName: zod.string(),
+      violationCount: zod.number(),
+    }),
+  ),
+  policyTrends: zod.array(
+    zod.object({
+      policy: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  violationVsAppraisal: zod.array(
+    zod.object({
+      employeeId: zod.number(),
+      employeeName: zod.string(),
+      violationCount: zod.number(),
+      appraisalCount: zod.number(),
+      avgAppraisalScore: zod.number().nullish(),
+      latestAppraisalPeriod: zod.string().nullish(),
+    }),
+  ),
+  trainingCompliance: zod.array(
+    zod.object({
+      planId: zod.number(),
+      title: zod.string(),
+      plannedDate: zod.string().nullish(),
+      requiredHours: zod.number(),
+      completedHours: zod.number(),
+      compliancePercent: zod.number(),
+      isCompliant: zod.boolean(),
+    }),
+  ),
+});
+
+export const UpdateIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateIncidentBody = zod.object({
+  incidentDate: zod.string().nullish(),
+  policyViolated: zod.string().nullish(),
+  violationDescription: zod.string().nullish(),
+  department: zod.string().nullish(),
+  actionTaken: zod
+    .enum(["oral_reprimand", "warning", "suspension", "other"])
+    .nullish(),
+  actionDetails: zod.string().nullish(),
+  status: zod.enum(["ongoing", "resolved"]).nullish(),
+  hrRemarks: zod.string().nullish(),
+  approvingAuthority: zod.string().nullish(),
+  relatedAppraisalPeriod: zod.string().nullish(),
+});
+
+export const UpdateIncidentResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  incidentDate: zod.string(),
+  policyViolated: zod.string(),
+  violationDescription: zod.string(),
+  department: zod.string(),
+  actionTaken: zod.enum(["oral_reprimand", "warning", "suspension", "other"]),
+  actionDetails: zod.string().optional(),
+  status: zod.enum(["ongoing", "resolved"]),
+  hrRemarks: zod.string().optional(),
+  approvingAuthority: zod.string().optional(),
+  relatedAppraisalPeriod: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
 export const ListGrievancesQueryParams = zod.object({
   employeeId: zod.coerce.number().optional(),
 });

@@ -10,6 +10,7 @@ import requestsRouter from "./requests";
 import appraisalsRouter from "./appraisals";
 import trainingRouter from "./training";
 import grievancesRouter from "./grievances";
+import incidentsRouter from "./incidents";
 import offboardingsRouter from "./offboardings";
 
 const router: IRouter = Router();
@@ -25,6 +26,7 @@ router.use(requestsRouter);
 router.use(appraisalsRouter);
 router.use(trainingRouter);
 router.use(grievancesRouter);
+router.use(incidentsRouter);
 router.use(offboardingsRouter);
 
 export default router;

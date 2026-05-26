@@ -406,6 +406,106 @@ export interface TrainingRecordInput {
   fileReference?: string | null;
 }
 
+export type IncidentActionTaken =
+  (typeof IncidentActionTaken)[keyof typeof IncidentActionTaken];
+
+export const IncidentActionTaken = {
+  oral_reprimand: "oral_reprimand",
+  warning: "warning",
+  suspension: "suspension",
+  other: "other",
+} as const;
+
+export type IncidentStatus =
+  (typeof IncidentStatus)[keyof typeof IncidentStatus];
+
+export const IncidentStatus = {
+  ongoing: "ongoing",
+  resolved: "resolved",
+} as const;
+
+export interface EmployeeIncident {
+  id: number;
+  employeeId: number;
+  incidentDate: string;
+  policyViolated: string;
+  violationDescription: string;
+  department: string;
+  actionTaken: IncidentActionTaken;
+  actionDetails?: string;
+  status: IncidentStatus;
+  hrRemarks?: string;
+  approvingAuthority?: string;
+  relatedAppraisalPeriod?: string | null;
+  createdAt: string;
+}
+
+export interface EmployeeIncidentInput {
+  employeeId: number;
+  incidentDate: string;
+  policyViolated: string;
+  violationDescription: string;
+  department?: string | null;
+  actionTaken: IncidentActionTaken;
+  actionDetails?: string | null;
+  status?: IncidentStatus | null;
+  hrRemarks?: string | null;
+  approvingAuthority?: string | null;
+  relatedAppraisalPeriod?: string | null;
+}
+
+export interface EmployeeIncidentUpdate {
+  incidentDate?: string | null;
+  policyViolated?: string | null;
+  violationDescription?: string | null;
+  department?: string | null;
+  actionTaken?: IncidentActionTaken | null;
+  actionDetails?: string | null;
+  status?: IncidentStatus | null;
+  hrRemarks?: string | null;
+  approvingAuthority?: string | null;
+  relatedAppraisalPeriod?: string | null;
+}
+
+export interface PolicyViolationTrend {
+  policy: string;
+  count: number;
+}
+
+export interface RepeatedViolator {
+  employeeId: number;
+  employeeName: string;
+  violationCount: number;
+}
+
+export interface ViolationAppraisalCorrelation {
+  employeeId: number;
+  employeeName: string;
+  violationCount: number;
+  appraisalCount: number;
+  avgAppraisalScore?: number | null;
+  latestAppraisalPeriod?: string | null;
+}
+
+export interface TrainingComplianceItem {
+  planId: number;
+  title: string;
+  plannedDate?: string | null;
+  requiredHours: number;
+  completedHours: number;
+  compliancePercent: number;
+  isCompliant: boolean;
+}
+
+export interface IncidentAnalytics {
+  activeIncidents: number;
+  resolvedIncidents: number;
+  repeatedViolators: RepeatedViolator[];
+  policyTrends: PolicyViolationTrend[];
+  violationVsAppraisal: ViolationAppraisalCorrelation[];
+  trainingCompliance: TrainingComplianceItem[];
+}
+
 export interface Grievance {
   id: number;
   employeeId: number;
@@ -507,6 +607,15 @@ export type ListTrainingEnrollmentsParams = {
 export type ListTrainingRecordsParams = {
   employeeId?: number;
   year?: number;
+};
+
+export type ListIncidentsParams = {
+  employeeId?: number;
+  status?: IncidentStatus;
+};
+
+export type GetIncidentAnalyticsParams = {
+  employeeId?: number;
 };
 
 export type ListGrievancesParams = {

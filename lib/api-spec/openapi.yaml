@@ -18,7 +18,9 @@ tags:
   - name: requests
   - name: appraisals
   - name: grievances
+  - name: incidents
   - name: offboarding
+  - name: training
 
 paths:
   /healthz:
@@ -646,6 +648,76 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TrainingRecord" }
 
+  /incidents:
+    get:
+      operationId: listIncidents
+      tags: [incidents]
+      parameters:
+        - in: query
+          name: employeeId
+          schema: { type: integer }
+        - in: query
+          name: status
+          schema: { $ref: "#/components/schemas/IncidentStatus" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/EmployeeIncident" }
+    post:
+      operationId: createIncident
+      tags: [incidents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeIncidentInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmployeeIncident" }
+
+  /incidents/analytics:
+    get:
+      operationId: getIncidentAnalytics
+      tags: [incidents]
+      parameters:
+        - in: query
+          name: employeeId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IncidentAnalytics" }
+
+  /incidents/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    patch:
+      operationId: updateIncident
+      tags: [incidents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmployeeIncidentUpdate" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EmployeeIncident" }
+
   /grievances:
     get:
       operationId: listGrievances
@@ -1254,6 +1326,139 @@ components:
         remarks: { type: string, nullable: true }
         contractAgreement: { type: string, nullable: true }
         fileReference: { type: string, nullable: true }
+
+    IncidentActionTaken:
+      type: string
+      enum: [oral_reprimand, warning, suspension, other]
+
+    IncidentStatus:
+      type: string
+      enum: [ongoing, resolved]
+
+    EmployeeIncident:
+      type: object
+      required:
+        - id
+        - employeeId
+        - incidentDate
+        - policyViolated
+        - violationDescription
+        - department
+        - actionTaken
+        - status
+        - createdAt
+      properties:
+        id: { type: integer }
+        employeeId: { type: integer }
+        incidentDate: { type: string }
+        policyViolated: { type: string }
+        violationDescription: { type: string }
+        department: { type: string }
+        actionTaken: { $ref: "#/components/schemas/IncidentActionTaken" }
+        actionDetails: { type: string }
+        status: { $ref: "#/components/schemas/IncidentStatus" }
+        hrRemarks: { type: string }
+        approvingAuthority: { type: string }
+        relatedAppraisalPeriod: { type: string, nullable: true }
+        createdAt: { type: string }
+
+    EmployeeIncidentInput:
+      type: object
+      required:
+        - employeeId
+        - incidentDate
+        - policyViolated
+        - violationDescription
+        - actionTaken
+      properties:
+        employeeId: { type: integer }
+        incidentDate: { type: string }
+        policyViolated: { type: string }
+        violationDescription: { type: string }
+        department: { type: string, nullable: true }
+        actionTaken: { $ref: "#/components/schemas/IncidentActionTaken" }
+        actionDetails: { type: string, nullable: true }
+        status: { $ref: "#/components/schemas/IncidentStatus", nullable: true }
+        hrRemarks: { type: string, nullable: true }
+        approvingAuthority: { type: string, nullable: true }
+        relatedAppraisalPeriod: { type: string, nullable: true }
+
+    EmployeeIncidentUpdate:
+      type: object
+      properties:
+        incidentDate: { type: string, nullable: true }
+        policyViolated: { type: string, nullable: true }
+        violationDescription: { type: string, nullable: true }
+        department: { type: string, nullable: true }
+        actionTaken: { $ref: "#/components/schemas/IncidentActionTaken", nullable: true }
+        actionDetails: { type: string, nullable: true }
+        status: { $ref: "#/components/schemas/IncidentStatus", nullable: true }
+        hrRemarks: { type: string, nullable: true }
+        approvingAuthority: { type: string, nullable: true }
+        relatedAppraisalPeriod: { type: string, nullable: true }
+
+    PolicyViolationTrend:
+      type: object
+      required: [policy, count]
+      properties:
+        policy: { type: string }
+        count: { type: integer }
+
+    RepeatedViolator:
+      type: object
+      required: [employeeId, employeeName, violationCount]
+      properties:
+        employeeId: { type: integer }
+        employeeName: { type: string }
+        violationCount: { type: integer }
+
+    ViolationAppraisalCorrelation:
+      type: object
+      required: [employeeId, employeeName, violationCount, appraisalCount]
+      properties:
+        employeeId: { type: integer }
+        employeeName: { type: string }
+        violationCount: { type: integer }
+        appraisalCount: { type: integer }
+        avgAppraisalScore: { type: number, nullable: true }
+        latestAppraisalPeriod: { type: string, nullable: true }
+
+    TrainingComplianceItem:
+      type: object
+      required: [planId, title, requiredHours, completedHours, compliancePercent, isCompliant]
+      properties:
+        planId: { type: integer }
+        title: { type: string }
+        plannedDate: { type: string, nullable: true }
+        requiredHours: { type: number }
+        completedHours: { type: number }
+        compliancePercent: { type: number }
+        isCompliant: { type: boolean }
+
+    IncidentAnalytics:
+      type: object
+      required:
+        - activeIncidents
+        - resolvedIncidents
+        - repeatedViolators
+        - policyTrends
+        - violationVsAppraisal
+        - trainingCompliance
+      properties:
+        activeIncidents: { type: integer }
+        resolvedIncidents: { type: integer }
+        repeatedViolators:
+          type: array
+          items: { $ref: "#/components/schemas/RepeatedViolator" }
+        policyTrends:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyViolationTrend" }
+        violationVsAppraisal:
+          type: array
+          items: { $ref: "#/components/schemas/ViolationAppraisalCorrelation" }
+        trainingCompliance:
+          type: array
+          items: { $ref: "#/components/schemas/TrainingComplianceItem" }
 
     Grievance:
       type: object

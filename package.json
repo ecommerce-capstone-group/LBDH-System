@@ -15,6 +15,7 @@
     "db:fix-applicants": "node lib/db/scripts/ensure-applicant-columns.mjs",
     "db:migrate-appraisals": "node lib/db/scripts/migrate-appraisals.mjs",
     "db:migrate-training-appraisals": "node lib/db/scripts/migrate-training-appraisals.mjs",
+    "db:migrate-employee-incidents": "node lib/db/scripts/migrate-employee-incidents.mjs",
     "db:diagnose-appraisals": "node lib/db/scripts/diagnose-appraisals.mjs",
     "db:seed": "pnpm --filter @workspace/scripts run seed:hr"
   },

@@ -30,13 +30,18 @@ import type {
   AttendanceSummary,
   DashboardSummary,
   Employee,
+  EmployeeIncident,
+  EmployeeIncidentInput,
+  EmployeeIncidentUpdate,
   EmployeeInput,
   GetAttendanceSummaryParams,
+  GetIncidentAnalyticsParams,
   Grievance,
   GrievanceInput,
   HealthStatus,
   HrRequest,
   HrRequestInput,
+  IncidentAnalytics,
   Job,
   JobInput,
   LeaveBalance,
@@ -48,6 +53,7 @@ import type {
   ListEmployeesParams,
   ListExpiringLicensesParams,
   ListGrievancesParams,
+  ListIncidentsParams,
   ListJobsParams,
   ListLeavesParams,
   ListRequestsParams,
@@ -3284,6 +3290,347 @@ export const useCreateTrainingRecord = <
   TContext
 > => {
   return useMutation(getCreateTrainingRecordMutationOptions(options));
+};
+
+export const getListIncidentsUrl = (params?: ListIncidentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/incidents?${stringifiedParams}`
+    : `/api/incidents`;
+};
+
+export const listIncidents = async (
+  params?: ListIncidentsParams,
+  options?: RequestInit,
+): Promise<EmployeeIncident[]> => {
+  return customFetch<EmployeeIncident[]>(getListIncidentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListIncidentsQueryKey = (params?: ListIncidentsParams) => {
+  return [`/api/incidents`, ...(params ? [params] : [])] as const;
+};
+
+export const getListIncidentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listIncidents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListIncidentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listIncidents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListIncidentsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listIncidents>>> = ({
+    signal,
+  }) => listIncidents(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listIncidents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListIncidentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listIncidents>>
+>;
+export type ListIncidentsQueryError = ErrorType<unknown>;
+
+export function useListIncidents<
+  TData = Awaited<ReturnType<typeof listIncidents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListIncidentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listIncidents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListIncidentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getCreateIncidentUrl = () => {
+  return `/api/incidents`;
+};
+
+export const createIncident = async (
+  employeeIncidentInput: EmployeeIncidentInput,
+  options?: RequestInit,
+): Promise<EmployeeIncident> => {
+  return customFetch<EmployeeIncident>(getCreateIncidentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(employeeIncidentInput),
+  });
+};
+
+export const getCreateIncidentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createIncident>>,
+    TError,
+    { data: BodyType<EmployeeIncidentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createIncident>>,
+  TError,
+  { data: BodyType<EmployeeIncidentInput> },
+  TContext
+> => {
+  const mutationKey = ["createIncident"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createIncident>>,
+    { data: BodyType<EmployeeIncidentInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createIncident(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateIncidentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createIncident>>
+>;
+export type CreateIncidentMutationBody = BodyType<EmployeeIncidentInput>;
+export type CreateIncidentMutationError = ErrorType<unknown>;
+
+export const useCreateIncident = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createIncident>>,
+    TError,
+    { data: BodyType<EmployeeIncidentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createIncident>>,
+  TError,
+  { data: BodyType<EmployeeIncidentInput> },
+  TContext
+> => {
+  return useMutation(getCreateIncidentMutationOptions(options));
+};
+
+export const getGetIncidentAnalyticsUrl = (
+  params?: GetIncidentAnalyticsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/incidents/analytics?${stringifiedParams}`
+    : `/api/incidents/analytics`;
+};
+
+export const getIncidentAnalytics = async (
+  params?: GetIncidentAnalyticsParams,
+  options?: RequestInit,
+): Promise<IncidentAnalytics> => {
+  return customFetch<IncidentAnalytics>(getGetIncidentAnalyticsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIncidentAnalyticsQueryKey = (
+  params?: GetIncidentAnalyticsParams,
+) => {
+  return [`/api/incidents/analytics`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetIncidentAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIncidentAnalytics>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetIncidentAnalyticsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getIncidentAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetIncidentAnalyticsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getIncidentAnalytics>>
+  > = ({ signal }) =>
+    getIncidentAnalytics(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getIncidentAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetIncidentAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIncidentAnalytics>>
+>;
+export type GetIncidentAnalyticsQueryError = ErrorType<unknown>;
+
+export function useGetIncidentAnalytics<
+  TData = Awaited<ReturnType<typeof getIncidentAnalytics>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetIncidentAnalyticsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getIncidentAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetIncidentAnalyticsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getUpdateIncidentUrl = (id: number) => {
+  return `/api/incidents/${id}`;
+};
+
+export const updateIncident = async (
+  id: number,
+  employeeIncidentUpdate: EmployeeIncidentUpdate,
+  options?: RequestInit,
+): Promise<EmployeeIncident> => {
+  return customFetch<EmployeeIncident>(getUpdateIncidentUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(employeeIncidentUpdate),
+  });
+};
+
+export const getUpdateIncidentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateIncident>>,
+    TError,
+    { id: number; data: BodyType<EmployeeIncidentUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateIncident>>,
+  TError,
+  { id: number; data: BodyType<EmployeeIncidentUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateIncident"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateIncident>>,
+    { id: number; data: BodyType<EmployeeIncidentUpdate> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateIncident(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateIncidentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateIncident>>
+>;
+export type UpdateIncidentMutationBody = BodyType<EmployeeIncidentUpdate>;
+export type UpdateIncidentMutationError = ErrorType<unknown>;
+
+export const useUpdateIncident = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateIncident>>,
+    TError,
+    { id: number; data: BodyType<EmployeeIncidentUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateIncident>>,
+  TError,
+  { id: number; data: BodyType<EmployeeIncidentUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateIncidentMutationOptions(options));
 };
 
 export const getListGrievancesUrl = (params?: ListGrievancesParams) => {

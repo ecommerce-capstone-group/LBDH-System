@@ -17,6 +17,7 @@ import {
   UserCircle,
   Receipt,
   GraduationCap,
+  ShieldAlert,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -37,6 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/requests", label: "Requests", icon: FileText },
     { href: "/performance", label: "Performance", icon: TrendingUp },
     { href: "/training", label: "Training", icon: GraduationCap },
+    { href: "/incidents", label: "Incidents", icon: ShieldAlert },
     { href: "/offboarding", label: "Offboarding", icon: UserMinus },
     { href: "/reports", label: "Reports", icon: PieChart },
   ];
