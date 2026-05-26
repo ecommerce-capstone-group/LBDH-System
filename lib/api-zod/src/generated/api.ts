@@ -835,6 +835,14 @@ export const EnrollTrainingPlanBody = zod.object({
   employeeId: zod.number(),
 });
 
+export const AssignTrainingPlanParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AssignTrainingPlanBody = zod.object({
+  employeeIds: zod.array(zod.number()).min(1),
+});
+
 export const ListTrainingEnrollmentsQueryParams = zod.object({
   employeeId: zod.coerce.number().optional(),
   planId: zod.coerce.number().optional(),

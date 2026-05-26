@@ -11,6 +11,7 @@ import {
   CreateTrainingPlanBody,
   CreateTrainingRecordBody,
   EnrollTrainingPlanBody,
+  AssignTrainingPlanBody,
   AdvanceTrainingPlanBody,
 } from "@workspace/api-zod";
 import {
@@ -150,6 +151,50 @@ router.post("/training-plans/:id/enroll", async (req, res) => {
     })
     .returning();
   res.status(201).json(row);
+});
+
+router.post("/training-plans/:id/assign", async (req, res) => {
+  const planId = Number(req.params.id);
+  const body = AssignTrainingPlanBody.parse(req.body);
+  const [plan] = await db
+    .select()
+    .from(trainingPlans)
+    .where(eq(trainingPlans.id, planId));
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+  if (plan.status !== "published" && plan.status !== "approved") {
+    return res.status(400).json({ error: "Training is not available for assignment" });
+  }
+
+  const enrolled = [];
+  const skippedEmployeeIds: number[] = [];
+
+  for (const employeeId of body.employeeIds) {
+    const existing = await db
+      .select()
+      .from(trainingEnrollments)
+      .where(
+        and(
+          eq(trainingEnrollments.planId, planId),
+          eq(trainingEnrollments.employeeId, employeeId),
+        ),
+      );
+    if (existing.length > 0) {
+      skippedEmployeeIds.push(employeeId);
+      continue;
+    }
+
+    const [row] = await db
+      .insert(trainingEnrollments)
+      .values({
+        planId,
+        employeeId,
+        status: "enrolled",
+      })
+      .returning();
+    enrolled.push(row);
+  }
+
+  res.status(201).json({ enrolled, skippedEmployeeIds });
 });
 
 router.get("/training-enrollments", async (req, res) => {

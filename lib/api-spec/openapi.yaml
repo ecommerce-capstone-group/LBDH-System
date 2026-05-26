@@ -571,6 +571,27 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TrainingEnrollment" }
 
+  /training-plans/{id}/assign:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      operationId: assignTrainingPlan
+      tags: [training]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignTrainingPlanInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignTrainingPlanResult" }
+
   /training-enrollments:
     get:
       operationId: listTrainingEnrollments
@@ -1164,6 +1185,26 @@ components:
       required: [employeeId]
       properties:
         employeeId: { type: integer }
+
+    AssignTrainingPlanInput:
+      type: object
+      required: [employeeIds]
+      properties:
+        employeeIds:
+          type: array
+          items: { type: integer }
+          minItems: 1
+
+    AssignTrainingPlanResult:
+      type: object
+      required: [enrolled, skippedEmployeeIds]
+      properties:
+        enrolled:
+          type: array
+          items: { $ref: "#/components/schemas/TrainingEnrollment" }
+        skippedEmployeeIds:
+          type: array
+          items: { type: integer }
 
     TrainingRecord:
       type: object

@@ -23,6 +23,8 @@ import type {
   AppraisalInput,
   ApprovalAction,
   ArchiveAppraisalInput,
+  AssignTrainingPlanInput,
+  AssignTrainingPlanResult,
   Attendance,
   AttendanceInput,
   AttendanceSummary,
@@ -2932,6 +2934,87 @@ export const useEnrollTrainingPlan = <
   TContext
 > => {
   return useMutation(getEnrollTrainingPlanMutationOptions(options));
+};
+
+export const getAssignTrainingPlanUrl = (id: number) => {
+  return `/api/training-plans/${id}/assign`;
+};
+
+export const assignTrainingPlan = async (
+  id: number,
+  assignTrainingPlanInput: AssignTrainingPlanInput,
+  options?: RequestInit,
+): Promise<AssignTrainingPlanResult> => {
+  return customFetch<AssignTrainingPlanResult>(getAssignTrainingPlanUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(assignTrainingPlanInput),
+  });
+};
+
+export const getAssignTrainingPlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignTrainingPlan>>,
+    TError,
+    { id: number; data: BodyType<AssignTrainingPlanInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignTrainingPlan>>,
+  TError,
+  { id: number; data: BodyType<AssignTrainingPlanInput> },
+  TContext
+> => {
+  const mutationKey = ["assignTrainingPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignTrainingPlan>>,
+    { id: number; data: BodyType<AssignTrainingPlanInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return assignTrainingPlan(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignTrainingPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignTrainingPlan>>
+>;
+export type AssignTrainingPlanMutationBody = BodyType<AssignTrainingPlanInput>;
+export type AssignTrainingPlanMutationError = ErrorType<unknown>;
+
+export const useAssignTrainingPlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignTrainingPlan>>,
+    TError,
+    { id: number; data: BodyType<AssignTrainingPlanInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignTrainingPlan>>,
+  TError,
+  { id: number; data: BodyType<AssignTrainingPlanInput> },
+  TContext
+> => {
+  return useMutation(getAssignTrainingPlanMutationOptions(options));
 };
 
 export const getListTrainingEnrollmentsUrl = (

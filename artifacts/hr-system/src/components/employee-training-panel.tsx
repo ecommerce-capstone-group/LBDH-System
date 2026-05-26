@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ApprovalStepper } from "@/components/approval-stepper";
+import { TrainingProgressBar } from "@/components/training-progress-bar";
 import {
   useListTrainingPlans,
   getListTrainingPlansQueryKey,
@@ -18,15 +19,30 @@ import {
   useEnrollTrainingPlan,
   type TrainingPlan,
   type TrainingRecord,
+  type TrainingEnrollment,
 } from "@workspace/api-client-react";
 import { asArray } from "@/lib/api-guards";
-import { getPlanProgress, getRecordProgress } from "@/lib/training-progress";
+import {
+  formatTrainingDate,
+  getPlanProgress,
+  getRecordProgress,
+} from "@/lib/training-progress";
 import { useQueryClient } from "@tanstack/react-query";
 
 type Props = {
   employeeId: number;
   department?: string;
 };
+
+const categoryLabel: Record<string, string> = {
+  doh_initiated: "DOH / Compliance",
+  hospital_required: "Hospital-required",
+  departmental_request: "Department-requested",
+};
+
+function isVisiblePlan(plan: TrainingPlan) {
+  return plan.status === "published" || plan.status === "approved";
+}
 
 export function EmployeeTrainingPanel({ employeeId, department }: Props) {
   const queryClient = useQueryClient();
@@ -54,14 +70,19 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
 
   const planRows = asArray<TrainingPlan>(plans);
   const recordRows = asArray<TrainingRecord>(records);
-  const enrollmentRows = asArray(enrollments);
+  const enrollmentRows = asArray<TrainingEnrollment>(enrollments);
 
-  const dohPlans = planRows.filter(
-    (p) => p.category === "doh_initiated" && p.status === "published",
+  const assignedPlans = enrollmentRows
+    .map((e) => planRows.find((p) => p.id === e.planId))
+    .filter((p): p is TrainingPlan => p != null && isVisiblePlan(p));
+
+  const openHospitalPlans = planRows.filter(
+    (p) =>
+      p.category === "hospital_required" &&
+      p.status === "published" &&
+      !enrollmentRows.some((e) => e.planId === p.id),
   );
-  const hospitalPlans = planRows.filter(
-    (p) => p.category === "hospital_required" && p.status === "published",
-  );
+
   const myRequests = planRows.filter(
     (p) => p.category === "departmental_request" && p.employeeId === employeeId,
   );
@@ -109,28 +130,33 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
     }
   };
 
-  const isEnrolled = (planId: number) =>
-    enrollmentRows.some((e) => e.planId === planId && e.status === "enrolled");
-
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">DOH / compliance trainings (view only)</CardTitle>
+          <CardTitle className="text-base">My assigned trainings</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {dohPlans.length === 0 ? (
-            <p className="text-sm text-gray-500">No DOH trainings scheduled this year.</p>
+        <CardContent className="space-y-4">
+          {assignedPlans.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No trainings assigned yet. HR will assign required trainings to you.
+            </p>
           ) : (
-            dohPlans.map((p) => {
+            assignedPlans.map((p) => {
               const progress = getPlanProgress(p, recordRows, employeeId);
               return (
-                <div key={p.id} className="text-sm border-b pb-2 last:border-0">
-                  <p className="font-medium">{p.title}</p>
-                  <p className="text-gray-500">
-                    Required: {p.trainingHours}h · HR-assigned
+                <div key={p.id} className="text-sm border-b pb-4 last:border-0 last:pb-0">
+                  <div className="flex justify-between items-start gap-2 mb-1">
+                    <p className="font-medium">{p.title}</p>
+                    <StatusBadge status="enrolled" />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {categoryLabel[p.category] ?? p.category} · Required {p.trainingHours}h
                   </p>
-                  <p className="text-primary font-medium text-xs mt-1">{progress.label}</p>
+                  <p className="text-xs font-medium text-primary mt-1">
+                    Scheduled: {formatTrainingDate(p.plannedDate)}
+                  </p>
+                  <TrainingProgressBar progress={progress} className="mt-3" />
                 </div>
               );
             })
@@ -138,46 +164,33 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Hospital-required trainings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {hospitalPlans.length === 0 ? (
-            <p className="text-sm text-gray-500">No open hospital trainings.</p>
-          ) : (
-            hospitalPlans.map((p) => {
-              const progress = getPlanProgress(p, recordRows, employeeId);
-              return (
+      {openHospitalPlans.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Open hospital trainings (self-enroll)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {openHospitalPlans.map((p) => (
               <div key={p.id} className="flex justify-between items-start gap-2 text-sm">
                 <div>
                   <p className="font-medium">{p.title}</p>
                   <p className="text-gray-500">
-                    Required: {p.trainingHours}h
-                    {p.plannedDate
-                      ? ` · ${new Date(p.plannedDate).toLocaleDateString()}`
-                      : ""}
+                    Required: {p.trainingHours}h · Scheduled: {formatTrainingDate(p.plannedDate)}
                   </p>
-                  <p className="text-primary font-medium text-xs mt-1">{progress.label}</p>
                 </div>
-                {isEnrolled(p.id) ? (
-                  <StatusBadge status="enrolled" />
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => applyToHospital(p.id)}
-                  >
-                    Apply
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyToHospital(p.id)}
+                >
+                  Apply
+                </Button>
               </div>
-            );
-            })
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -227,6 +240,9 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
                   <span className="font-medium text-sm">{p.title}</span>
                   <StatusBadge status={p.status} />
                 </div>
+                <p className="text-xs text-primary mb-2">
+                  Preferred date: {formatTrainingDate(p.plannedDate)}
+                </p>
                 {p.steps?.length > 0 ? (
                   <ApprovalStepper steps={p.steps} currentStep={p.currentStep} />
                 ) : null}
@@ -244,20 +260,30 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
           {recordRows.length === 0 ? (
             <p className="text-sm text-gray-500">No completed trainings on file.</p>
           ) : (
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-4 text-sm">
               {recordRows.map((r) => {
                 const progress = getRecordProgress(r, recordRows, planRows);
+                const linkedPlan =
+                  r.planId != null
+                    ? planRows.find((p) => p.id === r.planId)
+                    : planRows.find(
+                        (p) =>
+                          p.title.trim().toLowerCase() ===
+                          r.trainingName.trim().toLowerCase(),
+                      );
                 return (
-                  <li key={r.id} className="border-b pb-2 last:border-0">
+                  <li key={r.id} className="border-b pb-3 last:border-0">
                     <div className="flex justify-between gap-2">
                       <span className="font-medium">{r.trainingName}</span>
                       <span className="text-gray-500 shrink-0">
-                        {new Date(r.trainingDate).toLocaleDateString()}
+                        Logged {new Date(r.trainingDate).toLocaleDateString()}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      This session: {r.trainingHours}h · {progress.label}
+                      Scheduled: {formatTrainingDate(linkedPlan?.plannedDate)} · This session:{" "}
+                      {r.trainingHours}h
                     </p>
+                    <TrainingProgressBar progress={progress} className="mt-2" />
                   </li>
                 );
               })}

@@ -6,6 +6,25 @@ export type TrainingProgress = {
   label: string;
 };
 
+export function getProgressPercent(progress: TrainingProgress): number {
+  if (progress.requiredHours <= 0) return 0;
+  return Math.min(
+    100,
+    Math.round((progress.completedHours / progress.requiredHours) * 100),
+  );
+}
+
+export function formatTrainingDate(date: string | null | undefined): string {
+  if (!date) return "Date to be announced";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "Date to be announced";
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function recordsForPlan(
   plan: TrainingPlan,
   records: TrainingRecord[],

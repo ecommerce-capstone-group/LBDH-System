@@ -16,6 +16,8 @@ export * from "./appraisalTemplateType";
 export * from "./approvalAction";
 export * from "./approvalStep";
 export * from "./archiveAppraisalInput";
+export * from "./assignTrainingPlanInput";
+export * from "./assignTrainingPlanResult";
 export * from "./attendance";
 export * from "./attendanceInput";
 export * from "./attendanceSummary";

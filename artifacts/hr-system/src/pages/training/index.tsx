@@ -12,8 +12,12 @@ import {
   useCreateTrainingPlan,
   useCreateTrainingRecord,
   useAdvanceTrainingPlan,
+  useListTrainingEnrollments,
+  getListTrainingEnrollmentsQueryKey,
+  useAssignTrainingPlan,
   type TrainingPlan,
   type TrainingRecord,
+  type TrainingEnrollment,
   type Employee,
   type TrainingCategory,
 } from "@workspace/api-client-react";
@@ -27,8 +31,13 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ApprovalStepper } from "@/components/approval-stepper";
 import { ApprovalActions } from "@/components/approval-actions";
 import { asArray } from "@/lib/api-guards";
-import { getRecordProgress } from "@/lib/training-progress";
-import { PlusCircle, GraduationCap } from "lucide-react";
+import {
+  formatTrainingDate,
+  getPlanProgress,
+  getRecordProgress,
+} from "@/lib/training-progress";
+import { TrainingProgressBar } from "@/components/training-progress-bar";
+import { PlusCircle, GraduationCap, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +85,8 @@ export default function Training() {
   const [recRemarks, setRecRemarks] = useState("");
   const [recContract, setRecContract] = useState("");
   const [recFile, setRecFile] = useState("");
+  const [assignPlan, setAssignPlan] = useState<TrainingPlan | null>(null);
+  const [assignEmployeeIds, setAssignEmployeeIds] = useState<number[]>([]);
 
   const yearNum = Number(year) || currentYear;
 
@@ -90,14 +101,20 @@ export default function Training() {
   const { data: employees } = useListEmployees(undefined, {
     query: { queryKey: getListEmployeesQueryKey() },
   });
+  const { data: enrollments } = useListTrainingEnrollments(
+    {},
+    { query: { queryKey: getListTrainingEnrollmentsQueryKey({}) } },
+  );
 
   const createPlan = useCreateTrainingPlan();
   const createRecord = useCreateTrainingRecord();
   const advancePlan = useAdvanceTrainingPlan();
+  const assignPlanMutation = useAssignTrainingPlan();
 
   const planRows = asArray<TrainingPlan>(plans);
   const recordRows = asArray<TrainingRecord>(records);
   const employeeRows = asArray<Employee>(employees);
+  const enrollmentRows = asArray<TrainingEnrollment>(enrollments);
   const selectedRecordPlan =
     recPlanId === "" ? null : planRows.find((p) => p.id === Number(recPlanId)) ?? null;
 
@@ -110,6 +127,48 @@ export default function Training() {
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["/api/training-plans"] });
     await queryClient.invalidateQueries({ queryKey: ["/api/training-records"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/training-enrollments"] });
+  };
+
+  const enrollmentsForPlan = (planId: number) =>
+    enrollmentRows.filter((e) => e.planId === planId);
+
+  const openAssignDialog = (plan: TrainingPlan) => {
+    setAssignPlan(plan);
+    setAssignEmployeeIds(enrollmentsForPlan(plan.id).map((e) => e.employeeId));
+  };
+
+  const toggleAssignEmployee = (id: number) => {
+    setAssignEmployeeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const handleAssignEmployees = async () => {
+    if (!assignPlan) return;
+    if (assignEmployeeIds.length === 0) {
+      toast.error("Select at least one employee.");
+      return;
+    }
+    try {
+      const result = await assignPlanMutation.mutateAsync({
+        id: assignPlan.id,
+        data: { employeeIds: assignEmployeeIds },
+      });
+      await invalidate();
+      const added = result.enrolled?.length ?? 0;
+      const skipped = result.skippedEmployeeIds?.length ?? 0;
+      toast.success(
+        added > 0
+          ? `Assigned ${added} employee${added === 1 ? "" : "s"} to training.`
+          : skipped > 0
+            ? "Selected employees are already assigned."
+            : "Assignment saved.",
+      );
+      setAssignPlan(null);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not assign employees.");
+    }
   };
 
   const handleCreatePlan = async () => {
@@ -172,44 +231,81 @@ export default function Training() {
     }
   };
 
-  const PlanCard = ({ plan }: { plan: TrainingPlan }) => (
-    <Card key={plan.id}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start gap-2">
-          <CardTitle className="text-base">{plan.title}</CardTitle>
-          <StatusBadge status={plan.status} />
-        </div>
-        <p className="text-xs text-gray-500">
-          {plan.trainingHours}h
-          {plan.plannedDate ? ` · ${new Date(plan.plannedDate).toLocaleDateString()}` : ""}
-          {plan.department ? ` · ${plan.department}` : ""}
-        </p>
-      </CardHeader>
-      <CardContent>
-        {plan.description ? (
-          <p className="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{plan.description}</p>
-        ) : null}
-        {plan.category === "departmental_request" && plan.steps?.length > 0 ? (
-          <>
-            <ApprovalStepper steps={plan.steps} currentStep={plan.currentStep} />
-            {plan.status === "pending" ? (
-              <ApprovalActions
-                actor={user?.name ?? "HR"}
-                onAdvance={async (decision, note) => {
-                  await advancePlan.mutateAsync({
-                    id: plan.id,
-                    data: { decision, actor: user?.name ?? "HR", note },
-                  });
-                  await invalidate();
-                  toast.success(decision === "approve" ? "Step approved." : "Request rejected.");
-                }}
-              />
-            ) : null}
-          </>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
+  const PlanCard = ({ plan }: { plan: TrainingPlan }) => {
+    const assigned = enrollmentsForPlan(plan.id);
+    const assignedNames = assigned
+      .map((e) => employeeRows.find((emp) => emp.id === e.employeeId)?.name)
+      .filter(Boolean);
+
+    return (
+      <Card
+        key={plan.id}
+        className="cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => openAssignDialog(plan)}
+      >
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start gap-2">
+            <CardTitle className="text-base">{plan.title}</CardTitle>
+            <StatusBadge status={plan.status} />
+          </div>
+          <p className="text-xs text-gray-500">
+            {plan.trainingHours}h required
+            {plan.department ? ` · ${plan.department}` : ""}
+          </p>
+          <p className="text-xs font-medium text-primary mt-1">
+            Scheduled: {formatTrainingDate(plan.plannedDate)}
+          </p>
+        </CardHeader>
+        <CardContent>
+          {plan.description ? (
+            <p className="text-sm text-gray-600 mb-3 whitespace-pre-wrap line-clamp-3">
+              {plan.description}
+            </p>
+          ) : null}
+          <div className="flex items-center gap-2 text-xs text-gray-600 mb-3">
+            <Users className="h-3.5 w-3.5" />
+            <span>
+              {assigned.length === 0
+                ? "No employees assigned — click to assign"
+                : `${assigned.length} assigned: ${assignedNames.slice(0, 3).join(", ")}${assignedNames.length > 3 ? "…" : ""}`}
+            </span>
+          </div>
+          {plan.category === "departmental_request" && plan.steps?.length > 0 ? (
+            <div onClick={(e) => e.stopPropagation()}>
+              <ApprovalStepper steps={plan.steps} currentStep={plan.currentStep} />
+              {plan.status === "pending" ? (
+                <ApprovalActions
+                  actor={user?.name ?? "HR"}
+                  onAdvance={async (decision, note) => {
+                    await advancePlan.mutateAsync({
+                      id: plan.id,
+                      data: { decision, actor: user?.name ?? "HR", note },
+                    });
+                    await invalidate();
+                    toast.success(
+                      decision === "approve" ? "Step approved." : "Request rejected.",
+                    );
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="w-full mt-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              openAssignDialog(plan);
+            }}
+          >
+            Assign employees
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -276,7 +372,8 @@ export default function Training() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Log date</TableHead>
+                      <TableHead>Scheduled</TableHead>
                       <TableHead>Employee</TableHead>
                       <TableHead>Training</TableHead>
                       <TableHead>Type</TableHead>
@@ -288,13 +385,13 @@ export default function Training() {
                   <TableBody>
                     {recordsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                           Loading…
                         </TableCell>
                       </TableRow>
                     ) : recordRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                           No training records yet.
                         </TableCell>
                       </TableRow>
@@ -302,10 +399,21 @@ export default function Training() {
                       recordRows.map((r) => {
                         const emp = employeeRows.find((e) => e.id === r.employeeId);
                         const progress = getRecordProgress(r, recordRows, planRows);
+                        const linkedPlan =
+                          r.planId != null
+                            ? planRows.find((p) => p.id === r.planId)
+                            : planRows.find(
+                                (p) =>
+                                  p.title.trim().toLowerCase() ===
+                                  r.trainingName.trim().toLowerCase(),
+                              );
                         return (
                           <TableRow key={r.id}>
                             <TableCell>
                               {new Date(r.trainingDate).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {formatTrainingDate(linkedPlan?.plannedDate)}
                             </TableCell>
                             <TableCell>{emp?.name ?? `EMP-${r.employeeId}`}</TableCell>
                             <TableCell className="font-medium">{r.trainingName}</TableCell>
@@ -313,8 +421,8 @@ export default function Training() {
                               {r.trainingType.replace(/_/g, " ")}
                             </TableCell>
                             <TableCell>{r.trainingHours}</TableCell>
-                            <TableCell className="text-sm font-medium text-primary">
-                              {progress.label}
+                            <TableCell>
+                              <TrainingProgressBar progress={progress} />
                             </TableCell>
                             <TableCell>
                               <StatusBadge status={r.completionStatus} />
@@ -366,7 +474,7 @@ export default function Training() {
                 <Input type="number" value={planHours} onChange={(e) => setPlanHours(e.target.value)} />
               </div>
               <div className="grid gap-2">
-                <Label>Planned date</Label>
+                <Label>Training date</Label>
                 <Input type="date" value={planDate} onChange={(e) => setPlanDate(e.target.value)} />
               </div>
             </div>
@@ -420,14 +528,23 @@ export default function Training() {
                 <option value="">Select annual plan…</option>
                 {planRows.map((p) => (
                   <option key={p.id} value={String(p.id)}>
-                    {p.title} /{p.trainingHours} hours
+                    {p.title} · {formatTrainingDate(p.plannedDate)} · {p.trainingHours}h
                   </option>
                 ))}
               </select>
               {selectedRecordPlan ? (
-                <p className="text-xs text-gray-500">
-                  Total plan hours: /{selectedRecordPlan.trainingHours} hours
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500">
+                    Scheduled: {formatTrainingDate(selectedRecordPlan.plannedDate)} · Total:{" "}
+                    {selectedRecordPlan.trainingHours}h
+                  </p>
+                  <TrainingProgressBar
+                    progress={getPlanProgress(
+                      selectedRecordPlan,
+                      recordRows.filter((r) => Number(recEmployeeId) === r.employeeId),
+                    )}
+                  />
+                </div>
               ) : null}
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -471,6 +588,64 @@ export default function Training() {
             </Button>
             <Button disabled={createRecord.isPending} onClick={handleCreateRecord}>
               {createRecord.isPending ? "Saving…" : "Save record"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assignPlan !== null} onOpenChange={(open) => !open && setAssignPlan(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign employees to training</DialogTitle>
+            <DialogDescription>
+              {assignPlan ? (
+                <>
+                  <span className="font-medium text-foreground">{assignPlan.title}</span>
+                  {" · "}
+                  {formatTrainingDate(assignPlan.plannedDate)} · {assignPlan.trainingHours}h
+                  required
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-y-auto space-y-2 py-2 border rounded-md p-3">
+            {employeeRows.length === 0 ? (
+              <p className="text-sm text-gray-500">No employees found.</p>
+            ) : (
+              employeeRows.map((emp) => (
+                <label
+                  key={emp.id}
+                  className="flex items-center gap-3 py-2 px-2 rounded hover:bg-muted/50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300"
+                    checked={assignEmployeeIds.includes(emp.id)}
+                    onChange={() => toggleAssignEmployee(emp.id)}
+                  />
+                  <div className="text-sm">
+                    <p className="font-medium">{emp.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {emp.department}
+                      {emp.role ? ` · ${emp.role}` : ""}
+                    </p>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+          <p className="text-xs text-gray-500">
+            Selected employees will see this training on their Self Service page.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignPlan(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={assignPlanMutation.isPending}
+              onClick={handleAssignEmployees}
+            >
+              {assignPlanMutation.isPending ? "Saving…" : "Save assignments"}
             </Button>
           </DialogFooter>
         </DialogContent>
