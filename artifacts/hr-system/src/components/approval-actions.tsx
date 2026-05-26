@@ -30,12 +30,12 @@ export function ApprovalActions({
   return (
     <div className="space-y-3 border-t pt-4 mt-4">
       <div className="grid gap-2">
-        <Label htmlFor="approval-note">Note (optional)</Label>
+        <Label htmlFor="approval-note">Comments / signature note (optional)</Label>
         <Input
           id="approval-note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder={`Comment as ${actor}`}
+          placeholder="Review comments or acknowledgement text"
         />
       </div>
       <div className="flex flex-wrap gap-2">

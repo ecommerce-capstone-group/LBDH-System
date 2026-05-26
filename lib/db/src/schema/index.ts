@@ -170,7 +170,7 @@ export const appraisals = pgTable("appraisals", {
     .default(""),
   signatories: jsonb("signatories").$type<AppraisalSignatory[]>().notNull(),
   status: text("status").notNull().default("pending"),
-  currentStep: text("current_step").notNull().default("Employee Self-Assessment"),
+  currentStep: text("current_step").notNull().default("Appraiser Evaluation"),
   steps: jsonb("steps").$type<ApprovalStep[]>().notNull(),
   employeeSelfAssessment: text("employee_self_assessment").notNull().default(""),
   appraiserComments: text("appraiser_comments").notNull().default(""),

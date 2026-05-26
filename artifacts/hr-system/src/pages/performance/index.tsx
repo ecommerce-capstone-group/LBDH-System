@@ -80,8 +80,8 @@ export default function Performance() {
             Performance Appraisals
           </h2>
           <p className="text-gray-500">
-            Los Baños Doctors Hospital — non-supervisory (1–15) and supervisory (1–10)
-            forms.
+            Non-supervisory: appraiser → department head → HR → employee acknowledgement →
+            archive. Supervisory: self-assessment → appraiser → HR → acknowledgement → archive.
           </p>
         </div>
         <Button type="button" onClick={() => setOpen(true)}>

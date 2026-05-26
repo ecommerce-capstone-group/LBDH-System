@@ -10,7 +10,7 @@ import type { ApprovalStep } from "@workspace/db";
 import { validateAndComputeAppraisal } from "../lib/appraisal-validation";
 import {
   advanceApprovalSteps,
-  appraisalWorkflowSteps,
+  initialAppraisalWorkflow,
 } from "../lib/approval-workflow";
 
 const router: IRouter = Router();
@@ -46,21 +46,16 @@ router.post("/appraisals", async (req, res) => {
       body.criterionScores,
     );
 
-    const steps = appraisalWorkflowSteps(body.templateType);
-    let status = "pending";
-    let currentStep = steps[0]!.name;
-
-    if (body.employeeSelfAssessment?.trim()) {
-      steps[0] = {
-        ...steps[0]!,
-        status: "approved",
-        actor: body.employeeName,
-        timestamp: new Date().toISOString(),
-      };
-      const next = steps.findIndex((s) => s.status === "pending");
-      currentStep = next >= 0 ? steps[next]!.name : "Approved";
-      if (next < 0) status = "approved";
-    }
+    const hasAppraiserEvaluation = body.criterionScores.length > 0;
+    const { steps, status, currentStep } = initialAppraisalWorkflow(
+      body.templateType,
+      {
+        evaluator: body.evaluator,
+        employeeName: body.employeeName,
+        employeeSelfAssessment: body.employeeSelfAssessment ?? "",
+        hasAppraiserEvaluation,
+      },
+    );
 
     const [row] = await db
       .insert(appraisals)
@@ -121,8 +116,12 @@ router.post("/appraisals/:id/advance", async (req, res) => {
       return res.status(400).json({ error: "Appraisal is archived" });
     }
 
+    const stepsCopy = [...(existing.steps as ApprovalStep[])];
+    const pendingIdx = stepsCopy.findIndex((s) => s.status === "pending");
+    const stepName = pendingIdx >= 0 ? stepsCopy[pendingIdx]!.name : "";
+
     const result = advanceApprovalSteps(
-      [...(existing.steps as ApprovalStep[])],
+      stepsCopy,
       existing.status === "archived" ? "pending" : existing.status,
       body,
       { skipAuto: true },
@@ -131,12 +130,32 @@ router.post("/appraisals/:id/advance", async (req, res) => {
       return res.status(result.statusCode).json({ error: result.error });
     }
 
+    const note = body.note?.trim() ?? "";
+    const commentPatch: Record<string, string> = {};
+    if (note) {
+      if (stepName.includes("Department Head")) {
+        commentPatch.departmentHeadComments = note;
+      } else if (stepName.includes("HR Department")) {
+        commentPatch.hrComments = note;
+      } else if (
+        stepName.includes("Employee Acknowledgement") ||
+        stepName.includes("Supervisor/Manager Acknowledgement")
+      ) {
+        commentPatch.employeeAcknowledgement = note;
+      } else if (stepName.includes("Appraiser")) {
+        commentPatch.appraiserComments = note;
+      } else if (stepName.includes("Self-Assessment")) {
+        commentPatch.employeeSelfAssessment = note;
+      }
+    }
+
     const [row] = await db
       .update(appraisals)
       .set({
         steps: result.steps,
         status: result.status,
         currentStep: result.currentStep,
+        ...commentPatch,
       })
       .where(eq(appraisals.id, id))
       .returning();
@@ -158,6 +177,12 @@ router.post("/appraisals/:id/archive", async (req, res) => {
       .from(appraisals)
       .where(eq(appraisals.id, id));
     if (!existing) return res.status(404).json({ error: "Not found" });
+    if (existing.status !== "approved") {
+      return res.status(400).json({
+        error:
+          "Complete all review and signature steps before archiving to employee history.",
+      });
+    }
 
     const [row] = await db
       .update(appraisals)

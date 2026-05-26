@@ -29,12 +29,17 @@ function archivedAppraisalSteps(templateType: "non_supervisory" | "supervisory")
   const names =
     templateType === "non_supervisory"
       ? [
+          "Appraiser Evaluation",
+          "Department Head Review & Signature",
+          "HR Department Review & Signature",
+          "Employee Acknowledgement & Signature",
+        ]
+      : [
           "Employee Self-Assessment",
           "Appraiser Evaluation",
-          "Department Head Review",
-          "HR Final Review",
-        ]
-      : ["Employee Self-Assessment", "Appraiser Evaluation", "HR Final Review"];
+          "HR Department Review & Signature",
+          "Supervisor/Manager Acknowledgement & Signature",
+        ];
   return names.map((name) => ({
     name,
     status: "approved" as const,
@@ -414,15 +419,15 @@ async function run() {
       recommendation: "Recommend for regularization.",
       employeeAcknowledgement: "I acknowledge this evaluation.",
       signatories: [
-        { role: "Employee", name: emps[0]!.name },
-        { role: "Appraiser", name: "Dr. Ana Ramos" },
         { role: "Department Head", name: "Dr. Reyes" },
         { role: "HR", name: "Liza Bautista" },
+        { role: "Employee", name: emps[0]!.name },
       ],
+      employeeAcknowledgement:
+        "I acknowledge that this evaluation was discussed with me.",
       status: "archived",
       currentStep: "Archived",
       steps: archivedAppraisalSteps("non_supervisory"),
-      employeeSelfAssessment: "I met all clinical expectations for the period.",
       appraiserComments: "Strong performer; recommend regularization.",
       departmentHeadComments: "Endorsed for continued employment.",
       hrComments: "Filed and archived.",
@@ -450,10 +455,10 @@ async function run() {
       recommendation: "Continue in current supervisory role.",
       employeeAcknowledgement: "Reviewed and acknowledged.",
       signatories: [
-        { role: "Supervisor/Manager", name: "Hospital Administrator" },
-        { role: "Appraiser", name: "HR Director" },
         { role: "HR", name: "Liza Bautista" },
+        { role: "Supervisor/Manager", name: emps[4]!.name },
       ],
+      employeeAcknowledgement: "I acknowledge that this evaluation was discussed with me.",
       status: "archived",
       currentStep: "Archived",
       steps: archivedAppraisalSteps("supervisory"),

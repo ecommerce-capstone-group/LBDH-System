@@ -64,7 +64,7 @@ export const NON_SUPERVISORY_TEMPLATE: AppraisalTemplate = {
       ],
     },
   ],
-  signatoryRoles: ["Employee", "Appraiser", "Department Head", "HR"],
+  signatoryRoles: ["Department Head", "HR", "Employee"],
 };
 
 export const SUPERVISORY_TEMPLATE: AppraisalTemplate = {
@@ -127,7 +127,7 @@ export const SUPERVISORY_TEMPLATE: AppraisalTemplate = {
       ],
     },
   ],
-  signatoryRoles: ["Supervisor/Manager", "Appraiser", "HR"],
+  signatoryRoles: ["HR", "Supervisor/Manager"],
 };
 
 export const APPRAISAL_TEMPLATES: Record<
@@ -153,4 +153,63 @@ export function allCriteriaForTemplate(
 export function maxPossibleTotal(template: AppraisalTemplate): number {
   const count = allCriteriaForTemplate(template).length;
   return count * template.maxScore;
+}
+
+export type AppraisalWorkflowStepInfo = {
+  name: string;
+  description: string;
+};
+
+/** LBDH form routing order (signatures / review steps). */
+export const APPRAISAL_WORKFLOW: Record<
+  AppraisalTemplateType,
+  readonly AppraisalWorkflowStepInfo[]
+> = {
+  non_supervisory: [
+    {
+      name: "Appraiser Evaluation",
+      description:
+        "Final scores, strengths, areas for improvement, action plans, goals, recommendations",
+    },
+    {
+      name: "Department Head Review & Signature",
+      description: "Department Head reviews and signs",
+    },
+    {
+      name: "HR Department Review & Signature",
+      description: "Final HR signatory",
+    },
+    {
+      name: "Employee Acknowledgement & Signature",
+      description:
+        "Employee acknowledges the evaluation was discussed with them",
+    },
+  ],
+  supervisory: [
+    {
+      name: "Employee Self-Assessment",
+      description: "Supervisor/Manager self-assessment",
+    },
+    {
+      name: "Appraiser Evaluation",
+      description: "Appraiser completes the evaluation",
+    },
+    {
+      name: "HR Department Review & Signature",
+      description: "Final HR signatory (no Department Head on this form)",
+    },
+    {
+      name: "Supervisor/Manager Acknowledgement & Signature",
+      description: "Supervisor/Manager acknowledgement signature",
+    },
+  ],
+};
+
+export function appraisalWorkflowSteps(
+  type: AppraisalTemplateType,
+): { name: string; status: "pending" }[] {
+  return APPRAISAL_WORKFLOW[type].map((s) => ({
+    name: s.name,
+    status: "pending" as const,
+  }));
 }

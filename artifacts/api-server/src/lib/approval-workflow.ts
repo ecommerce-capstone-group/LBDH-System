@@ -1,4 +1,10 @@
 import type { ApprovalStep } from "@workspace/db";
+import {
+  appraisalWorkflowSteps,
+  type AppraisalTemplateType,
+} from "@workspace/db/appraisal-templates";
+
+export { appraisalWorkflowSteps };
 
 export function trainingRequestSteps(): ApprovalStep[] {
   return [
@@ -8,18 +14,50 @@ export function trainingRequestSteps(): ApprovalStep[] {
   ];
 }
 
-export function appraisalWorkflowSteps(
-  templateType: "non_supervisory" | "supervisory",
-): ApprovalStep[] {
-  const steps: ApprovalStep[] = [
-    { name: "Employee Self-Assessment", status: "pending" },
-    { name: "Appraiser Evaluation", status: "pending" },
-  ];
+export function initialAppraisalWorkflow(
+  templateType: AppraisalTemplateType,
+  opts: {
+    evaluator?: string;
+    employeeName?: string;
+    employeeSelfAssessment?: string;
+    hasAppraiserEvaluation?: boolean;
+  },
+): { steps: ApprovalStep[]; status: string; currentStep: string } {
+  const steps: ApprovalStep[] = appraisalWorkflowSteps(templateType).map((s) => ({
+    ...s,
+  }));
+  const ts = new Date().toISOString();
+
+  const approve = (index: number, actor: string) => {
+    if (steps[index]) {
+      steps[index] = {
+        ...steps[index]!,
+        status: "approved",
+        actor,
+        timestamp: ts,
+      };
+    }
+  };
+
   if (templateType === "non_supervisory") {
-    steps.push({ name: "Department Head Review", status: "pending" });
+    if (opts.hasAppraiserEvaluation) {
+      approve(0, opts.evaluator ?? "Appraiser");
+    }
+  } else {
+    if (opts.employeeSelfAssessment?.trim()) {
+      approve(0, opts.employeeName ?? "Employee");
+    }
+    if (opts.hasAppraiserEvaluation) {
+      const appraiserIdx = 1;
+      if (steps[appraiserIdx]) approve(appraiserIdx, opts.evaluator ?? "Appraiser");
+    }
   }
-  steps.push({ name: "HR Final Review", status: "pending" });
-  return steps;
+
+  const pendingIdx = steps.findIndex((s) => s.status === "pending");
+  if (pendingIdx < 0) {
+    return { steps, status: "approved", currentStep: "Ready for archive" };
+  }
+  return { steps, status: "pending", currentStep: steps[pendingIdx]!.name };
 }
 
 export type AdvanceInput = {
@@ -77,7 +115,7 @@ export function advanceApprovalSteps(
 
   const pendingIdx = next.findIndex((s) => s.status === "pending");
   if (pendingIdx < 0) {
-    return { steps: next, status: "approved", currentStep: "Approved" };
+    return { steps: next, status: "approved", currentStep: "Ready for archive" };
   }
 
   if (!options?.skipAuto && next[pendingIdx]!.name === "Auto") {

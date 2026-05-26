@@ -5,6 +5,7 @@ import { ApprovalActions } from "@/components/approval-actions";
 import {
   APPRAISAL_TEMPLATES,
   APPRAISAL_TYPES,
+  APPRAISAL_WORKFLOW,
   allCriteriaForTemplate,
   maxPossibleTotal,
   type AppraisalTemplateType,
@@ -65,6 +66,7 @@ export function AppraisalForm({
   const [longTermGoals, setLongTermGoals] = useState("");
   const [scores, setScores] = useState<Record<string, string>>({});
   const [recommendation, setRecommendation] = useState("");
+  const [employeeSelfAssessment, setEmployeeSelfAssessment] = useState("");
   const [employeeAcknowledgement, setEmployeeAcknowledgement] = useState("");
   const [signatoryNames, setSignatoryNames] = useState<Record<string, string>>({});
 
@@ -103,6 +105,13 @@ export function AppraisalForm({
       }
       if (template.signatoryRoles.includes("Employee") && employeeName && !prev["Employee"]) {
         next["Employee"] = employeeName;
+      }
+      if (
+        template.signatoryRoles.includes("Supervisor/Manager") &&
+        employeeName &&
+        !prev["Supervisor/Manager"]
+      ) {
+        next["Supervisor/Manager"] = employeeName;
       }
       return next;
     });
@@ -169,13 +178,44 @@ export function AppraisalForm({
       longTermGoals: longTermGoals.trim(),
       criterionScores,
       recommendation: recommendation.trim(),
+      employeeSelfAssessment: employeeSelfAssessment.trim(),
       employeeAcknowledgement: employeeAcknowledgement.trim(),
       signatories,
     });
   };
 
+  const workflowSteps = APPRAISAL_WORKFLOW[templateType];
+
   return (
     <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Form routing</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+            {workflowSteps.map((step) => (
+              <li key={step.name}>
+                <span className="font-medium">{step.name}</span>
+                <span className="text-gray-500"> — {step.description}</span>
+              </li>
+            ))}
+            <li className="font-medium text-gray-800">Archive to employee appraisal history</li>
+          </ol>
+          {templateType === "non_supervisory" ? (
+            <p className="text-xs text-muted-foreground mt-3">
+              Save now to record the appraiser evaluation. Employee acknowledgement is collected
+              after Department Head and HR signatures.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-3">
+              Include self-assessment if already completed; otherwise the record starts at step 1
+              for the employee.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="ap-emp">Employee *</Label>
@@ -286,10 +326,28 @@ export function AppraisalForm({
         </CardContent>
       </Card>
 
+      {templateType === "supervisory" ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">A. Employee self-assessment (Step 1)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={employeeSelfAssessment}
+              onChange={(e) => setEmployeeSelfAssessment(e.target.value)}
+              rows={4}
+              placeholder="Supervisor/Manager self-assessment…"
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            A. Strengths &amp; Areas for Improvement
+            {templateType === "non_supervisory"
+              ? "A. Appraiser evaluation (Step 1) — scores & narrative"
+              : "B. Appraiser evaluation (Step 2)"}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -318,7 +376,11 @@ export function AppraisalForm({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">B. Employee Development Goals</CardTitle>
+          <CardTitle className="text-base">
+            {templateType === "non_supervisory"
+              ? "B. Employee development goals"
+              : "C. Employee development goals"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
@@ -423,10 +485,7 @@ export function AppraisalForm({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            {templateType === "supervisory" ? "H. " : "D. "}
-            Recommendation
-          </CardTitle>
+          <CardTitle className="text-base">Recommendation</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -440,25 +499,15 @@ export function AppraisalForm({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            {templateType === "supervisory" ? "I. " : "E. "}
-            Employee Acknowledgement
-          </CardTitle>
+          <CardTitle className="text-base">Planned signatures</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Textarea
-            value={employeeAcknowledgement}
-            onChange={(e) => setEmployeeAcknowledgement(e.target.value)}
-            rows={2}
-            placeholder="Employee comments or acknowledgement statement"
-          />
+        <CardContent className="pb-2">
+          <p className="text-xs text-muted-foreground">
+            {templateType === "non_supervisory"
+              ? "Employee acknowledgement is collected in the workflow after HR review—not on initial appraiser save."
+              : "Supervisor/Manager acknowledgement is the final workflow step before archive."}
+          </p>
         </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Signatories</CardTitle>
-        </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           {template.signatoryRoles.map((role) => (
             <div key={role} className="grid gap-2">
@@ -547,7 +596,12 @@ export function AppraisalDetailView({
 
       {appraisal.steps?.length > 0 ? (
         <div className="rounded-lg border p-4 bg-gray-50">
-          <p className="font-medium mb-3">Approval workflow</p>
+          <p className="font-medium mb-3">Form routing</p>
+          <ol className="text-xs text-gray-600 mb-3 space-y-1 list-disc list-inside">
+            {APPRAISAL_WORKFLOW[appraisal.templateType].map((s) => (
+              <li key={s.name}>{s.description}</li>
+            ))}
+          </ol>
           <ApprovalStepper
             steps={appraisal.steps}
             currentStep={appraisal.currentStep}
@@ -563,9 +617,18 @@ export function AppraisalDetailView({
 
       {appraisal.employeeSelfAssessment ? (
         <div>
-          <p className="font-medium">Employee self-assessment</p>
+          <p className="font-medium">Employee / Supervisor self-assessment</p>
           <p className="text-gray-600 whitespace-pre-wrap">
             {appraisal.employeeSelfAssessment}
+          </p>
+        </div>
+      ) : null}
+
+      {appraisal.employeeAcknowledgement ? (
+        <div>
+          <p className="font-medium">Acknowledgement</p>
+          <p className="text-gray-600 whitespace-pre-wrap">
+            {appraisal.employeeAcknowledgement}
           </p>
         </div>
       ) : null}
@@ -681,7 +744,7 @@ function ArchiveAppraisalAction({
             .finally(() => setPending(false));
         }}
       >
-        Archive appraisal
+        Archive to employee history
       </Button>
     </div>
   );
