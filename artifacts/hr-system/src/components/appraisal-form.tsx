@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ApprovalStepper } from "@/components/approval-stepper";
-import { ApprovalActions } from "@/components/approval-actions";
+import { CheckCircle2, Circle } from "lucide-react";
 import {
   APPRAISAL_TEMPLATES,
   APPRAISAL_TYPES,
@@ -25,6 +24,119 @@ const SUPERVISORY_ROLE_PATTERN =
 
 function inferTemplateType(role: string): AppraisalTemplateType {
   return SUPERVISORY_ROLE_PATTERN.test(role) ? "supervisory" : "non_supervisory";
+}
+
+type ProgressState = "Completed" | "Pending" | "Missing" | "Archived";
+
+type AppraisalProgressItem = {
+  label: string;
+  state: ProgressState;
+};
+
+function hasText(value: string | null | undefined): boolean {
+  return Boolean(value && value.trim());
+}
+
+function hasSignatory(
+  appraisal: import("@workspace/api-client-react").Appraisal,
+  role: string,
+): boolean {
+  return appraisal.signatories.some((s) => s.role === role && hasText(s.name));
+}
+
+function getAppraisalProgress(
+  appraisal: import("@workspace/api-client-react").Appraisal,
+): {
+  items: AppraisalProgressItem[];
+  currentStatus: string;
+  isArchived: boolean;
+  readyForArchive: boolean;
+} {
+  const isArchived = appraisal.status === "archived" || Boolean(appraisal.archivedAt);
+  const selfAssessmentDone = hasText(appraisal.employeeSelfAssessment);
+  const evaluationDone = appraisal.criterionScores.length > 0;
+  const departmentHeadDone =
+    hasText(appraisal.departmentHeadComments) || hasSignatory(appraisal, "Department Head");
+  const hrReviewDone = hasText(appraisal.hrComments) || hasSignatory(appraisal, "HR");
+  const acknowledgementDone =
+    hasText(appraisal.employeeAcknowledgement) ||
+    hasSignatory(appraisal, "Employee") ||
+    hasSignatory(appraisal, "Supervisor/Manager");
+
+  const sequence =
+    appraisal.templateType === "non_supervisory"
+      ? [
+          { label: "Self-assessment submitted", done: selfAssessmentDone },
+          { label: "Appraiser evaluation completed", done: evaluationDone },
+          { label: "Department head review completed", done: departmentHeadDone },
+          { label: "HR review completed", done: hrReviewDone },
+          { label: "Employee acknowledgement completed", done: acknowledgementDone },
+        ]
+      : [
+          { label: "Self-assessment submitted", done: selfAssessmentDone },
+          { label: "Appraiser evaluation completed", done: evaluationDone },
+          { label: "HR review completed", done: hrReviewDone },
+          { label: "Employee acknowledgement completed", done: acknowledgementDone },
+        ];
+
+  const readyForArchive = sequence.every((step) => step.done);
+  const completedAfter = sequence.map((step, index) =>
+    sequence.slice(index + 1).some((next) => next.done),
+  );
+  const items: AppraisalProgressItem[] = sequence.map((step, index) => {
+    if (isArchived) return { label: step.label, state: "Completed" };
+    if (step.done) return { label: step.label, state: "Completed" };
+    return {
+      label: step.label,
+      state: completedAfter[index] ? "Missing" : "Pending",
+    };
+  });
+
+  items.push({
+    label: "Archived",
+    state: isArchived ? "Archived" : "Pending",
+  });
+
+  if (isArchived) {
+    return {
+      items,
+      currentStatus: "Archived",
+      isArchived,
+      readyForArchive,
+    };
+  }
+
+  const missingIdx = sequence.findIndex((step) => !step.done);
+  if (missingIdx >= 0) {
+    const waitingLabels =
+      appraisal.templateType === "non_supervisory"
+        ? [
+            "Self-Assessment",
+            "Appraiser Evaluation",
+            "Department Head Review",
+            "HR Review",
+            "Employee Acknowledgement",
+          ]
+        : [
+            "Self-Assessment",
+            "Appraiser Evaluation",
+            "HR Review",
+            "Employee Acknowledgement",
+          ];
+    return {
+      items,
+      currentStatus: `Waiting for ${waitingLabels[missingIdx]}`,
+      isArchived,
+      readyForArchive,
+    };
+  }
+
+  return {
+    items,
+    currentStatus: "Ready for Archive",
+    isArchived,
+    readyForArchive,
+  };
 }
 
 type AppraisalFormProps = {
@@ -546,19 +658,16 @@ export function AppraisalForm({
 
 type AppraisalDetailProps = {
   appraisal: import("@workspace/api-client-react").Appraisal;
-  onAdvance?: (decision: "approve" | "reject", note: string) => Promise<void>;
   onArchive?: (signedFormReference: string) => Promise<void>;
-  actor?: string;
 };
 
 export function AppraisalDetailView({
   appraisal,
-  onAdvance,
   onArchive,
-  actor = "HR",
 }: AppraisalDetailProps) {
   const template = APPRAISAL_TEMPLATES[appraisal.templateType];
   const maxTotal = maxPossibleTotal(template);
+  const progress = getAppraisalProgress(appraisal);
 
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 text-sm">
@@ -586,34 +695,51 @@ export function AppraisalDetailView({
           {appraisal.evaluatorPosition})
         </p>
         <p>
-          <span className="text-gray-500">Status:</span>{" "}
-          <span className="capitalize">{appraisal.status}</span>
+          <span className="text-gray-500">Current status:</span> {progress.currentStatus}
         </p>
         <p className="font-semibold text-emerald-700">
           Total: {appraisal.totalScore} / {maxTotal}
         </p>
       </div>
 
-      {appraisal.steps?.length > 0 ? (
-        <div className="rounded-lg border p-4 bg-gray-50">
-          <p className="font-medium mb-3">Form routing</p>
-          <ol className="text-xs text-gray-600 mb-3 space-y-1 list-disc list-inside">
-            {APPRAISAL_WORKFLOW[appraisal.templateType].map((s) => (
-              <li key={s.name}>{s.description}</li>
-            ))}
-          </ol>
-          <ApprovalStepper
-            steps={appraisal.steps}
-            currentStep={appraisal.currentStep}
-          />
-          {appraisal.status === "pending" && onAdvance ? (
-            <ApprovalActions actor={actor} onAdvance={onAdvance} />
-          ) : null}
-          {appraisal.status === "approved" && onArchive ? (
-            <ArchiveAppraisalAction onArchive={onArchive} />
-          ) : null}
-        </div>
-      ) : null}
+      <div className="rounded-lg border p-4 bg-gray-50">
+        <p className="font-medium mb-3">Appraisal Progress</p>
+        <ul className="space-y-2">
+          {progress.items.map((item) => (
+            <li key={item.label} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2">
+                {item.state === "Completed" || item.state === "Archived" ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                ) : (
+                  <Circle className="h-4 w-4 text-gray-400" />
+                )}
+                {item.label}
+              </span>
+              <span
+                className={
+                  item.state === "Completed"
+                    ? "text-emerald-700 text-xs font-medium"
+                    : item.state === "Archived"
+                      ? "text-indigo-700 text-xs font-medium"
+                      : item.state === "Missing"
+                        ? "text-rose-700 text-xs font-medium"
+                        : "text-amber-700 text-xs font-medium"
+                }
+              >
+                {item.state}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {progress.readyForArchive && !progress.isArchived && onArchive ? (
+          <ArchiveAppraisalAction onArchive={onArchive} />
+        ) : null}
+        {!progress.readyForArchive && !progress.isArchived ? (
+          <p className="text-xs text-muted-foreground mt-3">
+            Status updates automatically when required sections and signatories are completed.
+          </p>
+        ) : null}
+      </div>
 
       {appraisal.employeeSelfAssessment ? (
         <div>

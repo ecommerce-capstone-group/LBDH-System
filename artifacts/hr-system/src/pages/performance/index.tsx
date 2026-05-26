@@ -8,7 +8,6 @@ import {
   useListEmployees,
   getListEmployeesQueryKey,
   useCreateAppraisal,
-  useAdvanceAppraisal,
   useArchiveAppraisal,
   type Appraisal,
   type Employee,
@@ -52,7 +51,6 @@ export default function Performance() {
   });
 
   const createAppraisal = useCreateAppraisal();
-  const advanceAppraisal = useAdvanceAppraisal();
   const archiveAppraisal = useArchiveAppraisal();
   const rows = asArray<Appraisal>(appraisals);
   const employeeRows = asArray<Employee>(employees);
@@ -121,26 +119,8 @@ export default function Performance() {
           {detail ? (
             <AppraisalDetailView
               appraisal={detail}
-              actor={user?.name ?? "HR"}
-              onAdvance={
-                detail.status === "pending"
-                  ? async (decision, note) => {
-                      const updated = await advanceAppraisal.mutateAsync({
-                        id: detail.id,
-                        data: { decision, actor: user?.name ?? "HR", note },
-                      });
-                      setDetail(updated);
-                      await queryClient.invalidateQueries({
-                        queryKey: ["/api/appraisals"],
-                      });
-                      toast.success(
-                        decision === "approve" ? "Step approved." : "Rejected.",
-                      );
-                    }
-                  : undefined
-              }
               onArchive={
-                detail.status === "approved"
+                detail.status !== "archived"
                   ? async (signedFormReference) => {
                       const updated = await archiveAppraisal.mutateAsync({
                         id: detail.id,
