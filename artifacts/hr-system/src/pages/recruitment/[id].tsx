@@ -204,10 +204,44 @@ export default function JobDetail() {
                           job requirements.
                         </p>
                       )}
-                      {applicant.aiEvaluation && typeof applicant.aiEvaluation === "object" ? (
-                        <p className="text-xs text-gray-600 whitespace-pre-wrap">
-                          {"summary" in applicant.aiEvaluation ? String((applicant.aiEvaluation as any).summary) : ""}
-                        </p>
+                      {applicant.aiEvaluation?.summary ? (
+                        <p className="text-xs text-gray-600 whitespace-pre-wrap">{applicant.aiEvaluation.summary}</p>
+                      ) : null}
+
+                      {applicant.aiEvaluation?.matches?.length ? (
+                        <div className="pt-2 border-t border-gray-100">
+                          <h6 className="text-xs font-semibold text-gray-700 mb-2">Breakdown</h6>
+                          <div className="max-h-56 overflow-auto pr-1">
+                            <div className="space-y-2">
+                              {applicant.aiEvaluation.matches.map((m, i) => {
+                                const conf = Math.round((m.confidence ?? 0) * 100);
+                                return (
+                                  <div key={i} className="rounded-md border border-gray-100 bg-gray-50/30 p-2">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium text-gray-800 truncate" title={m.requirement}>
+                                          {m.requirement}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          {m.met ? (
+                                            <Check className="h-4 w-4 text-emerald-500" />
+                                          ) : (
+                                            <X className="h-4 w-4 text-red-500" />
+                                          )}
+                                          <span className="text-xs font-mono text-gray-600">{conf}%</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <p className="text-[11px] text-gray-600 whitespace-pre-wrap mt-2 leading-snug">
+                                      <span className="font-semibold">Evidence: </span>
+                                      {m.evidence}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       ) : null}
                     </div>
                   </div>
