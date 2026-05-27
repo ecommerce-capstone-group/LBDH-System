@@ -90,6 +90,23 @@ export interface RequirementMatch {
   weight: number;
 }
 
+export interface AiRequirementMatch {
+  requirement: string;
+  met: boolean;
+  /** 0 to 1 */
+  confidence: number;
+  evidence: string;
+}
+
+export interface ApplicantAiEvaluation {
+  /** 0 to 100 */
+  score: number;
+  summary: string;
+  matches: AiRequirementMatch[];
+  model: string;
+  evaluatedAt: string;
+}
+
 export interface Applicant {
   id: number;
   jobId: number;
@@ -101,6 +118,9 @@ export interface Applicant {
   resume: string;
   totalScore: number;
   matches: RequirementMatch[];
+  aiScore?: number | null;
+  aiEvaluation?: ApplicantAiEvaluation | null;
+  aiUpdatedAt?: string | null;
   createdAt: string;
 }
 

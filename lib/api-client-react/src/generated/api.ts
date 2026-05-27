@@ -1444,6 +1444,90 @@ export const useDeleteApplicant = <
   return useMutation(getDeleteApplicantMutationOptions(options));
 };
 
+/**
+ * @summary Run AI resume match scoring for an applicant
+ */
+export const getScoreApplicantAiUrl = (id: number) => {
+  return `/api/applicants/${id}/ai-score`;
+};
+
+export const scoreApplicantAi = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Applicant> => {
+  return customFetch<Applicant>(getScoreApplicantAiUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getScoreApplicantAiMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scoreApplicantAi>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof scoreApplicantAi>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["scoreApplicantAi"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof scoreApplicantAi>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return scoreApplicantAi(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ScoreApplicantAiMutationResult = NonNullable<
+  Awaited<ReturnType<typeof scoreApplicantAi>>
+>;
+
+export type ScoreApplicantAiMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Run AI resume match scoring for an applicant
+ */
+export const useScoreApplicantAi = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scoreApplicantAi>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof scoreApplicantAi>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getScoreApplicantAiMutationOptions(options));
+};
+
 export const getListAttendanceUrl = (params?: ListAttendanceParams) => {
   const normalizedParams = new URLSearchParams();
 

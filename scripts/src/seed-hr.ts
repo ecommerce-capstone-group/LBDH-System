@@ -417,7 +417,6 @@ async function run() {
       criterionScores: nsScores,
       totalScore: nsScores.reduce((s, c) => s + c.score, 0),
       recommendation: "Recommend for regularization.",
-      employeeAcknowledgement: "I acknowledge this evaluation.",
       signatories: [
         { role: "Department Head", name: "Dr. Reyes" },
         { role: "HR", name: "Liza Bautista" },
@@ -453,7 +452,6 @@ async function run() {
       criterionScores: supScores,
       totalScore: supScores.reduce((s, c) => s + c.score, 0),
       recommendation: "Continue in current supervisory role.",
-      employeeAcknowledgement: "Reviewed and acknowledged.",
       signatories: [
         { role: "HR", name: "Liza Bautista" },
         { role: "Supervisor/Manager", name: emps[4]!.name },

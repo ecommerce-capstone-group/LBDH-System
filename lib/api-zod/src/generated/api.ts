@@ -262,6 +262,24 @@ export const ListApplicantsResponseItem = zod.object({
       weight: zod.number(),
     }),
   ),
+  aiScore: zod.number().nullish(),
+  aiEvaluation: zod
+    .object({
+      score: zod.number().describe("0 to 100"),
+      summary: zod.string(),
+      matches: zod.array(
+        zod.object({
+          requirement: zod.string(),
+          met: zod.boolean(),
+          confidence: zod.number().describe("0 to 1"),
+          evidence: zod.string(),
+        }),
+      ),
+      model: zod.string(),
+      evaluatedAt: zod.string(),
+    })
+    .nullish(),
+  aiUpdatedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListApplicantsResponse = zod.array(ListApplicantsResponseItem);
@@ -305,11 +323,76 @@ export const GetApplicantResponse = zod.object({
       weight: zod.number(),
     }),
   ),
+  aiScore: zod.number().nullish(),
+  aiEvaluation: zod
+    .object({
+      score: zod.number().describe("0 to 100"),
+      summary: zod.string(),
+      matches: zod.array(
+        zod.object({
+          requirement: zod.string(),
+          met: zod.boolean(),
+          confidence: zod.number().describe("0 to 1"),
+          evidence: zod.string(),
+        }),
+      ),
+      model: zod.string(),
+      evaluatedAt: zod.string(),
+    })
+    .nullish(),
+  aiUpdatedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
 export const DeleteApplicantParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Run AI resume match scoring for an applicant
+ */
+export const ScoreApplicantAiParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ScoreApplicantAiResponse = zod.object({
+  id: zod.number(),
+  jobId: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  phone: zod.string(),
+  skills: zod.string(),
+  experience: zod.string(),
+  resume: zod.string(),
+  totalScore: zod.number(),
+  matches: zod.array(
+    zod.object({
+      label: zod.string(),
+      kind: zod.string(),
+      value: zod.union([zod.boolean(), zod.number()]),
+      score: zod.number(),
+      weight: zod.number(),
+    }),
+  ),
+  aiScore: zod.number().nullish(),
+  aiEvaluation: zod
+    .object({
+      score: zod.number().describe("0 to 100"),
+      summary: zod.string(),
+      matches: zod.array(
+        zod.object({
+          requirement: zod.string(),
+          met: zod.boolean(),
+          confidence: zod.number().describe("0 to 1"),
+          evidence: zod.string(),
+        }),
+      ),
+      model: zod.string(),
+      evaluatedAt: zod.string(),
+    })
+    .nullish(),
+  aiUpdatedAt: zod.string().nullish(),
+  createdAt: zod.string(),
 });
 
 export const ListAttendanceQueryParams = zod.object({

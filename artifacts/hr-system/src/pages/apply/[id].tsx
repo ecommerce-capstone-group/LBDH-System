@@ -24,6 +24,7 @@ export default function ApplyJob() {
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
   const [submitted, setSubmitted] = useState<Applicant | null>(null);
+  const [resumeText, setResumeText] = useState("");
 
   const { data: job, isLoading } = useGetJob(id, {
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) },
@@ -62,7 +63,7 @@ export default function ApplyJob() {
           phone: String(fd.get("phone") ?? "").trim(),
           skills: String(fd.get("skills") ?? "").trim(),
           experience: String(fd.get("experience") ?? "").trim(),
-          resume: String(fd.get("resume") ?? "").trim(),
+          resume: (resumeText || String(fd.get("resume") ?? "")).trim(),
           answers,
         },
       });
@@ -230,7 +231,10 @@ export default function ApplyJob() {
                                 min={0}
                                 max={req.max || undefined}
                                 className="bg-white pr-12"
-                                value={typeof reqAnswers[req.label] === "number" ? reqAnswers[req.label] : ""}
+                                value={(() => {
+                                  const v = reqAnswers[req.label];
+                                  return typeof v === "number" ? v : "";
+                                })()}
                                 onChange={(e) =>
                                   setReqAnswers((prev) => ({
                                     ...prev,
@@ -276,12 +280,34 @@ export default function ApplyJob() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="resume">Resume / CV (text) *</Label>
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      id="resume-file"
+                      type="file"
+                      accept=".txt,text/plain"
+                      className="bg-white"
+                      onChange={(e) => {
+                        const file = e.currentTarget.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => setResumeText(String(reader.result ?? ""));
+                        reader.onerror = () =>
+                          toast.error("Could not read file", { description: "Please upload a plain .txt file." });
+                        reader.readAsText(file);
+                      }}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Tip: You can upload a plain <span className="font-mono">.txt</span> file or paste below.
+                    </p>
+                  </div>
                   <Textarea
                     id="resume"
                     name="resume"
                     required
                     placeholder="Paste your resume summary, education, licenses, and work history…"
                     className="min-h-32 bg-white font-mono text-sm"
+                    value={resumeText}
+                    onChange={(e) => setResumeText(e.target.value)}
                   />
                 </div>
               </div>

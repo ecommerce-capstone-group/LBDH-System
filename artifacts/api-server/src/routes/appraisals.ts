@@ -150,7 +150,14 @@ router.post("/appraisals", async (req, res) => {
 router.post("/appraisals/:id/advance", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const body = AdvanceAppraisalBody.parse(req.body);
+    const bodyRaw = AdvanceAppraisalBody.parse(req.body);
+    if (bodyRaw.decision !== "approve" && bodyRaw.decision !== "reject") {
+      return res.status(400).json({ error: "Invalid decision (approve | reject)" });
+    }
+    const body = {
+      ...bodyRaw,
+      decision: bodyRaw.decision as "approve" | "reject",
+    };
     const [existing] = await db
       .select()
       .from(appraisals)

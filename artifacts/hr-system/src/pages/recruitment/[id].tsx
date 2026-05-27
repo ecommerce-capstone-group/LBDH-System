@@ -4,6 +4,7 @@ import {
   getGetJobQueryKey,
   useListApplicants,
   getListApplicantsQueryKey,
+  useScoreApplicantAi,
 } from "@workspace/api-client-react";
 import type { Applicant, Job, Requirement, RequirementMatch } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +13,11 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { FitScoreBar } from "@/components/fit-score-bar";
 import { Check, X, Mail, Phone, RefreshCw } from "lucide-react";
 import { asArray, isRecord } from "@/lib/api-guards";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export default function JobDetail() {
+  const queryClient = useQueryClient();
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
 
@@ -40,6 +44,7 @@ export default function JobDetail() {
   );
 
   const applicantRows = asArray<Applicant>(applicants);
+  const scoreApplicantAi = useScoreApplicantAi();
 
   if (isLoadingJob) return <div className="p-6">Loading job details...</div>;
   if (!job || !isRecord(job) || typeof job.title !== "string") {
@@ -165,6 +170,45 @@ export default function JobDetail() {
                     </div>
                     <div className="pt-2 rounded-lg border bg-white p-3">
                       <FitScoreBar score={applicant.totalScore} size="lg" />
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-gray-700">AI resume match</div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={scoreApplicantAi.isPending}
+                          onClick={async () => {
+                            try {
+                              await scoreApplicantAi.mutateAsync({ id: applicant.id });
+                              await queryClient.invalidateQueries({
+                                queryKey: getListApplicantsQueryKey({ jobId: id }),
+                              });
+                              toast.success("AI scoring updated");
+                            } catch (e: unknown) {
+                              const msg =
+                                e instanceof Error ? e.message : "Could not run AI scoring. Check GEMINI_API_KEY.";
+                              toast.error("AI scoring failed", { description: msg });
+                            }
+                          }}
+                        >
+                          {scoreApplicantAi.isPending ? "Scoring…" : applicant.aiScore != null ? "Re-score" : "Run"}
+                        </Button>
+                      </div>
+                      {applicant.aiScore != null ? (
+                        <FitScoreBar score={applicant.aiScore} label="AI match score" size="md" showHint={false} />
+                      ) : (
+                        <p className="text-xs text-gray-500">
+                          Not scored yet. Click <span className="font-medium">Run</span> to compare the resume against
+                          job requirements.
+                        </p>
+                      )}
+                      {applicant.aiEvaluation && typeof applicant.aiEvaluation === "object" ? (
+                        <p className="text-xs text-gray-600 whitespace-pre-wrap">
+                          {"summary" in applicant.aiEvaluation ? String((applicant.aiEvaluation as any).summary) : ""}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 

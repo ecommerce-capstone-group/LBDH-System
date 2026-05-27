@@ -5,6 +5,7 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
+import type { ApplicantAiEvaluation } from "./applicantAiEvaluation";
 import type { RequirementMatch } from "./requirementMatch";
 
 export interface Applicant {
@@ -18,5 +19,8 @@ export interface Applicant {
   resume: string;
   totalScore: number;
   matches: RequirementMatch[];
+  aiScore?: number | null;
+  aiEvaluation?: ApplicantAiEvaluation | null;
+  aiUpdatedAt?: string | null;
   createdAt: string;
 }

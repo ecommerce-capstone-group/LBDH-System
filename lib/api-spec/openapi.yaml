@@ -253,6 +253,23 @@ paths:
         "204":
           description: Deleted
 
+  /applicants/{id}/ai-score:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      operationId: scoreApplicantAi
+      tags: [applicants]
+      summary: Run AI resume match scoring for an applicant
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Applicant" }
+
   /attendance:
     get:
       operationId: listAttendance
@@ -907,6 +924,27 @@ components:
         score: { type: number }
         weight: { type: number }
 
+    AiRequirementMatch:
+      type: object
+      required: [requirement, met, confidence, evidence]
+      properties:
+        requirement: { type: string }
+        met: { type: boolean }
+        confidence: { type: number, description: "0 to 1" }
+        evidence: { type: string }
+
+    ApplicantAiEvaluation:
+      type: object
+      required: [score, summary, matches, model, evaluatedAt]
+      properties:
+        score: { type: number, description: "0 to 100" }
+        summary: { type: string }
+        matches:
+          type: array
+          items: { $ref: "#/components/schemas/AiRequirementMatch" }
+        model: { type: string }
+        evaluatedAt: { type: string }
+
     Applicant:
       type: object
       required: [id, jobId, name, email, phone, skills, experience, resume, totalScore, matches, createdAt]
@@ -923,6 +961,9 @@ components:
         matches:
           type: array
           items: { $ref: "#/components/schemas/RequirementMatch" }
+        aiScore: { type: number, nullable: true }
+        aiEvaluation: { $ref: "#/components/schemas/ApplicantAiEvaluation", nullable: true }
+        aiUpdatedAt: { type: string, nullable: true }
         createdAt: { type: string }
 
     ApplicantInput:

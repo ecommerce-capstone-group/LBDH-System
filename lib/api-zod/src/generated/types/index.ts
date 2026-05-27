@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./aiRequirementMatch";
 export * from "./applicant";
+export * from "./applicantAiEvaluation";
 export * from "./applicantInput";
 export * from "./appraisal";
 export * from "./appraisalCriterionScore";

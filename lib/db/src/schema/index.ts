@@ -55,6 +55,21 @@ export type RequirementMatch = {
   weight: number;
 };
 
+export type AiRequirementMatch = {
+  requirement: string;
+  met: boolean;
+  confidence: number;
+  evidence: string;
+};
+
+export type ApplicantAiEvaluation = {
+  score: number;
+  summary: string;
+  matches: AiRequirementMatch[];
+  model: string;
+  evaluatedAt: string;
+};
+
 export const applicants = pgTable("applicants", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id")
@@ -68,6 +83,9 @@ export const applicants = pgTable("applicants", {
   resume: text("resume").notNull(),
   totalScore: real("total_score").notNull(),
   matches: jsonb("matches").$type<RequirementMatch[]>().notNull(),
+  aiScore: real("ai_score"),
+  aiEvaluation: jsonb("ai_evaluation").$type<ApplicantAiEvaluation>(),
+  aiUpdatedAt: timestamp("ai_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

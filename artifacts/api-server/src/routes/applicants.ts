@@ -2,9 +2,137 @@ import { Router, type IRouter } from "express";
 import { db, applicants, jobs } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { CreateApplicantBody } from "@workspace/api-zod";
-import type { Requirement, RequirementMatch } from "@workspace/db";
+import type { ApplicantAiEvaluation, Requirement, RequirementMatch } from "@workspace/db";
 
 const router: IRouter = Router();
+
+const GEMINI_DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+
+function assertAiEvaluation(value: unknown): asserts value is ApplicantAiEvaluation {
+  if (!value || typeof value !== "object") throw new Error("AI evaluation is not an object");
+  const v = value as any;
+  if (typeof v.score !== "number" || v.score < 0 || v.score > 100) throw new Error("AI score must be 0-100");
+  if (typeof v.summary !== "string" || !v.summary.trim()) throw new Error("AI summary is missing");
+  if (!Array.isArray(v.matches)) throw new Error("AI matches must be an array");
+  for (const m of v.matches) {
+    if (!m || typeof m !== "object") throw new Error("AI match item is invalid");
+    if (typeof (m as any).requirement !== "string" || !(m as any).requirement.trim()) {
+      throw new Error("AI match requirement is missing");
+    }
+    if (typeof (m as any).met !== "boolean") throw new Error("AI match met must be boolean");
+    const c = (m as any).confidence;
+    if (typeof c !== "number" || c < 0 || c > 1) throw new Error("AI match confidence must be 0-1");
+    if (typeof (m as any).evidence !== "string" || !(m as any).evidence.trim()) {
+      throw new Error("AI match evidence is missing");
+    }
+  }
+  if (typeof v.model !== "string" || !v.model.trim()) throw new Error("AI model is missing");
+  if (typeof v.evaluatedAt !== "string" || !v.evaluatedAt.trim()) throw new Error("AI evaluatedAt is missing");
+}
+
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return null;
+  return text.slice(start, end + 1);
+}
+
+async function runGeminiAiEvaluation(args: {
+  model: string;
+  apiKey: string;
+  jobTitle: string;
+  jobDepartment: string;
+  requirements: string[];
+  applicantName: string;
+  skills: string;
+  experience: string;
+  resume: string;
+}): Promise<ApplicantAiEvaluation> {
+  const { model, apiKey } = args;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+    model,
+  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const requirementsText = args.requirements.map((r) => `- ${r}`).join("\n");
+
+  const systemInstruction =
+    "You are an HR screening assistant. Score ONLY against the provided job requirements. " +
+    "Do not use protected attributes (age, gender, religion, etc.) and do not guess missing info. " +
+    "If evidence is missing, mark as not met and say what is missing.";
+
+  const userPrompt = `Return ONLY valid JSON (no markdown, no backticks) matching this schema:
+{
+  "score": number, // 0-100 overall match
+  "summary": string, // 1-3 short sentences
+  "matches": [
+    {
+      "requirement": string,
+      "met": boolean,
+      "confidence": number, // 0 to 1
+      "evidence": string // quote or paraphrase from resume/skills/experience
+    }
+  ]
+}
+
+Job:
+Title: ${args.jobTitle}
+Department: ${args.jobDepartment}
+Requirements:
+${requirementsText}
+
+Applicant:
+Name: ${args.applicantName}
+Skills:
+${args.skills}
+
+Experience:
+${args.experience}
+
+Resume (text):
+${args.resume}
+`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: { temperature: 0.2 },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) {
+      const bodyText = await resp.text().catch(() => "");
+      throw new Error(`Gemini error (${resp.status}): ${bodyText || resp.statusText}`);
+    }
+
+    const data = (await resp.json()) as any;
+    const text: string | undefined =
+      data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join("\n") ??
+      data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text || typeof text !== "string") {
+      throw new Error("Gemini returned empty response text");
+    }
+
+    const jsonText = extractJsonObject(text) ?? text.trim();
+    const parsed = JSON.parse(jsonText);
+    const enriched: ApplicantAiEvaluation = {
+      ...parsed,
+      model,
+      evaluatedAt: new Date().toISOString(),
+    };
+    assertAiEvaluation(enriched);
+    return enriched;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 router.get("/applicants", async (req, res) => {
   try {
@@ -99,6 +227,63 @@ router.post("/applicants", async (req, res) => {
       error:
         "Could not save application. Run database migration (pnpm db:push or scripts/migrate-applicants-email-phone.sql).",
     });
+  }
+});
+
+router.post("/applicants/:id/ai-score", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({
+        error: "Missing GEMINI_API_KEY on server. Add it to environment variables and restart the API server.",
+      });
+    }
+
+    const [applicant] = await db.select().from(applicants).where(eq(applicants.id, id));
+    if (!applicant) return res.status(404).json({ error: "Applicant not found" });
+
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, applicant.jobId));
+    if (!job) return res.status(404).json({ error: "Job not found" });
+
+    const reqsFromWeights = Array.isArray(job.requirements)
+      ? (job.requirements as Requirement[]).map((r) => r.label)
+      : [];
+    const reqsFromDescription = String(job.description || "")
+      .split(/\r?\n/g)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const uniqueReqs = Array.from(new Set([...reqsFromWeights, ...reqsFromDescription])).slice(0, 30);
+
+    const evaluation = await runGeminiAiEvaluation({
+      model: GEMINI_DEFAULT_MODEL,
+      apiKey,
+      jobTitle: job.title,
+      jobDepartment: job.department,
+      requirements: uniqueReqs,
+      applicantName: applicant.name,
+      skills: applicant.skills,
+      experience: applicant.experience,
+      resume: applicant.resume,
+    });
+
+    const [updated] = await db
+      .update(applicants)
+      .set({
+        aiScore: evaluation.score,
+        aiEvaluation: evaluation,
+        aiUpdatedAt: new Date(),
+      })
+      .where(eq(applicants.id, id))
+      .returning();
+
+    res.json(updated);
+  } catch (err) {
+    console.error("ai-score applicant failed", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Could not run AI scoring" });
   }
 });
 
