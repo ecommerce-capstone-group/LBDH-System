@@ -8,6 +8,36 @@ const router: IRouter = Router();
 
 const GEMINI_DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
+type GeminiModel = {
+  name?: string;
+  supportedGenerationMethods?: string[];
+};
+
+async function pickSupportedGeminiModel(apiKey: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, { method: "GET" });
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "");
+    throw new Error(`Gemini listModels error (${resp.status}): ${bodyText || resp.statusText}`);
+  }
+  const data = (await resp.json()) as { models?: GeminiModel[] };
+  const models = Array.isArray(data.models) ? data.models : [];
+
+  const supportsGenerate = (m: GeminiModel) =>
+    typeof m.name === "string" &&
+    Array.isArray(m.supportedGenerationMethods) &&
+    m.supportedGenerationMethods.includes("generateContent");
+
+  const preferred =
+    models.find((m) => supportsGenerate(m) && (m.name as string).includes("gemini") && (m.name as string).includes("flash")) ??
+    models.find((m) => supportsGenerate(m) && (m.name as string).includes("gemini")) ??
+    models.find((m) => supportsGenerate(m));
+
+  if (!preferred?.name) throw new Error("No Gemini model supports generateContent for this API key");
+  // API returns names like "models/gemini-xxx" — we need the suffix for the generateContent URL.
+  return preferred.name.startsWith("models/") ? preferred.name.slice("models/".length) : preferred.name;
+}
+
 function assertAiEvaluation(value: unknown): asserts value is ApplicantAiEvaluation {
   if (!value || typeof value !== "object") throw new Error("AI evaluation is not an object");
   const v = value as any;
@@ -49,9 +79,10 @@ async function runGeminiAiEvaluation(args: {
   resume: string;
 }): Promise<ApplicantAiEvaluation> {
   const { model, apiKey } = args;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    model,
-  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const makeUrl = (m: string) =>
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(
+      apiKey,
+    )}`;
 
   const requirementsText = args.requirements.map((r) => `- ${r}`).join("\n");
 
@@ -95,7 +126,8 @@ ${args.resume}
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
-    const resp = await fetch(url, {
+    let activeModel = model;
+    let resp = await fetch(makeUrl(activeModel), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -105,6 +137,21 @@ ${args.resume}
       }),
       signal: controller.signal,
     });
+
+    if (resp.status === 404) {
+      // Model not found / not supported for generateContent → pick a supported one automatically.
+      activeModel = await pickSupportedGeminiModel(apiKey);
+      resp = await fetch(makeUrl(activeModel), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.2 },
+        }),
+        signal: controller.signal,
+      });
+    }
 
     if (!resp.ok) {
       const bodyText = await resp.text().catch(() => "");
@@ -124,7 +171,7 @@ ${args.resume}
     const parsed = JSON.parse(jsonText);
     const enriched: ApplicantAiEvaluation = {
       ...parsed,
-      model,
+      model: activeModel,
       evaluatedAt: new Date().toISOString(),
     };
     assertAiEvaluation(enriched);
