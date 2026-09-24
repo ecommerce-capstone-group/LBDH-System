@@ -1,15 +1,13 @@
-import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useGetDashboardSummary,
   getGetDashboardSummaryQueryKey,
-  useListEmployees,
-  getListEmployeesQueryKey,
+  useGetEmployee,
+  getGetEmployeeQueryKey,
   useListLeaves,
   getListLeavesQueryKey,
   useGetLeaveBalance,
   getGetLeaveBalanceQueryKey,
-  type Employee,
   type LeaveRequest,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,23 +28,16 @@ export default function Dashboard() {
 
   const summaryData = isDashboardSummary(summary) ? summary : null;
 
-  const { data: employees } = useListEmployees(undefined, {
+  const linkedEmployeeId =
+    user?.role === "employee" && user.employeeId != null ? user.employeeId : 0;
+
+  const { data: employee } = useGetEmployee(linkedEmployeeId, {
     query: {
-      queryKey: getListEmployeesQueryKey(),
-      enabled: user?.role === "employee",
+      queryKey: getGetEmployeeQueryKey(linkedEmployeeId),
+      enabled: linkedEmployeeId > 0,
     },
   });
-  const employeeList = asArray<Employee>(employees);
-  const employee = useMemo((): Employee | null => {
-    if (!user || user.role !== "employee") return null;
-    const found = employeeList.find(
-      (item) =>
-        item.name === user.name ||
-        item.email?.toLowerCase().includes(user.username),
-    );
-    return found ?? employeeList[0] ?? null;
-  }, [employeeList, user]);
-  const employeeId = employee?.id ?? 0;
+  const employeeId = linkedEmployeeId;
 
   const { data: leaveBalance } = useGetLeaveBalance(employeeId, {
     query: {
@@ -72,8 +63,15 @@ export default function Dashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">Welcome back, {user.name}</h2>
-          <p className="text-gray-500">Here's what's happening with your employment profile today.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+            Welcome back, {employee?.name ?? user.name}
+          </h2>
+          <p className="text-gray-500">
+            Here&apos;s what&apos;s happening with your employment profile today.
+            {employeeId > 0
+              ? ` Employee ID EMP-${String(employeeId).padStart(4, "0")}.`
+              : ""}
+          </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">

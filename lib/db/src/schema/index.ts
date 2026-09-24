@@ -28,6 +28,21 @@ export const employees = pgTable("employees", {
     .defaultNow(),
 });
 
+/** Login accounts linked 1:1 to employee profiles (role = employee). */
+export const employeeAccounts = pgTable("employee_accounts", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id")
+    .notNull()
+    .unique()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type Requirement = {
   label: string;
   kind: "checkbox" | "number";

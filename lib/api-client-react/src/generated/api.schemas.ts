@@ -49,6 +49,16 @@ export interface EmployeeInput {
   status?: string | null;
 }
 
+export interface EmployeeAccountCredentials {
+  username: string;
+  temporaryPassword: string;
+}
+
+export type EmployeeCreateResult = Employee & {
+  /** One-time credentials shown to HR after account creation */
+  account?: EmployeeAccountCredentials | null;
+};
+
 export interface Requirement {
   label: string;
   /** checkbox | number */
@@ -648,6 +658,8 @@ export interface OnboardingCreateEmployeeInput {
 export interface OnboardingCreateEmployeeResult {
   onboarding: Onboarding;
   employee: Employee;
+  /** One-time credentials shown to HR after account creation */
+  account?: EmployeeAccountCredentials | null;
 }
 
 export type ListEmployeesParams = {

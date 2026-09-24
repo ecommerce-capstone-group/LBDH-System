@@ -8,25 +8,63 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { HeartPulse, Lock } from "lucide-react";
 import { toast } from "sonner";
 
+type EmployeeLoginResponse = {
+  username: string;
+  role: "employee";
+  name: string;
+  employeeId: number;
+};
+
 export default function Login() {
   const { login } = useAuth();
   const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [pending, setPending] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === "hr" && password === "hr123") {
+    const user = username.trim();
+    const pass = password;
+
+    // Existing HR / Unit Head demo logins — unchanged.
+    if (user === "hr" && pass === "hr123") {
       login("hr", "hr", "HR Coordinator");
       setLocation("/dashboard");
-    } else if (username === "unithead" && password === "unit123") {
+      return;
+    }
+    if (user === "unithead" && pass === "unit123") {
       login("unithead", "unit_head", "Unit Head");
       setLocation("/dashboard");
-    } else if (username === "employee" && password === "employee123") {
-      login("employee", "employee", "Dr. Jane Doe");
+      return;
+    }
+
+    setPending(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: user, password: pass }),
+      });
+      const body = (await res.json().catch(() => ({}))) as
+        | EmployeeLoginResponse
+        | { error?: string };
+      if (!res.ok) {
+        throw new Error(
+          "error" in body && body.error
+            ? body.error
+            : "Invalid username or password",
+        );
+      }
+      const session = body as EmployeeLoginResponse;
+      login(session.username, "employee", session.name, session.employeeId);
       setLocation("/dashboard");
-    } else {
-      toast.error("Invalid credentials");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Invalid username or password",
+      );
+    } finally {
+      setPending(false);
     }
   };
 
@@ -61,8 +99,9 @@ export default function Login() {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="hr, unithead, or employee"
+                    placeholder="Username"
                     className="border-gray-300 focus:border-primary focus:ring-primary"
+                    autoComplete="username"
                   />
                 </div>
                 <div className="space-y-2">
@@ -75,21 +114,36 @@ export default function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="border-gray-300 focus:border-primary focus:ring-primary"
+                    autoComplete="current-password"
                   />
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-11 text-base font-medium shadow-sm">
-                <Lock className="mr-2 h-4 w-4" />
-                Sign in to HRMS
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-medium shadow-sm"
+                disabled={pending}
+              >
+                <Lock className="mr-2 h-4 w-5" />
+                {pending ? "Signing in…" : "Sign in to HRMS"}
               </Button>
-              
+
               <div className="mt-4 rounded-md bg-blue-50 p-4 border border-blue-100 text-sm text-blue-800">
-                <p className="font-semibold mb-1">Demo Credentials:</p>
+                <p className="font-semibold mb-1">Demo credentials:</p>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>HR:</strong> hr / hr123</li>
-                  <li><strong>Unit Head:</strong> unithead / unit123</li>
-                  <li><strong>Employee:</strong> employee / employee123</li>
+                  <li>
+                    <strong>HR:</strong> hr / hr123
+                  </li>
+                  <li>
+                    <strong>Unit Head:</strong> unithead / unit123
+                  </li>
+                  <li>
+                    <strong>Employee (seeded):</strong> employee / employee123
+                  </li>
+                  <li>
+                    New hires use the username and temporary password shown once
+                    to HR when the profile is created.
+                  </li>
                 </ul>
               </div>
             </form>

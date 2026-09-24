@@ -27,6 +27,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  EmployeeCredentialsDialog,
+  type EmployeeAccountCredentials,
+} from "@/components/employee-credentials-dialog";
 
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -51,6 +55,7 @@ export default function OnboardingPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [editRecord, setEditRecord] = useState<Onboarding | null>(null);
   const [hireRecord, setHireRecord] = useState<Onboarding | null>(null);
+  const [credentials, setCredentials] = useState<EmployeeAccountCredentials | null>(null);
 
   const [interviewScheduledAt, setInterviewScheduledAt] = useState("");
   const [interviewStatus, setInterviewStatus] = useState("pending");
@@ -154,8 +159,22 @@ export default function OnboardingPage() {
       await queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-      toast.success(`Employee created: EMP-${String(result.employee.id).padStart(4, "0")}`);
       setHireRecord(null);
+      if (result.account?.username && result.account.temporaryPassword) {
+        setCredentials({
+          username: result.account.username,
+          temporaryPassword: result.account.temporaryPassword,
+          employeeName: result.employee.name,
+          employeeCode: `EMP-${String(result.employee.id).padStart(4, "0")}`,
+        });
+        toast.success(
+          `Employee created: EMP-${String(result.employee.id).padStart(4, "0")}. Login credentials shown once.`,
+        );
+      } else {
+        toast.success(
+          `Employee created: EMP-${String(result.employee.id).padStart(4, "0")}`,
+        );
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not create employee.";
       toast.error(msg);
@@ -164,6 +183,10 @@ export default function OnboardingPage() {
 
   return (
     <div className="space-y-6">
+      <EmployeeCredentialsDialog
+        credentials={credentials}
+        onClose={() => setCredentials(null)}
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">Onboarding</h2>

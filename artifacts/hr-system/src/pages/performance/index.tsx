@@ -43,32 +43,24 @@ export default function Performance() {
 
   const isHr = user?.role === "hr";
   const isEmployee = user?.role === "employee";
+  const linkedEmployeeId =
+    isEmployee && user?.employeeId != null ? user.employeeId : 0;
 
   const { data: employees } = useListEmployees(undefined, {
     query: {
       queryKey: getListEmployeesQueryKey(),
-      enabled: isHr || isEmployee,
+      enabled: isHr,
     },
   });
   const employeeRows = asArray<Employee>(employees);
 
-  const matchedEmployee = useMemo(() => {
-    if (!user || !isEmployee) return null;
-    return (
-      employeeRows.find(
-        (item) =>
-          item.name === user.name ||
-          item.email?.toLowerCase().includes(user.username),
-      ) ?? null
-    );
-  }, [employeeRows, user, isEmployee]);
-
-  const listParams = matchedEmployee ? { employeeId: matchedEmployee.id } : {};
+  const listParams = linkedEmployeeId > 0 ? { employeeId: linkedEmployeeId } : {};
 
   const { data: appraisals, isLoading } = useListAppraisals(listParams, {
     query: {
       queryKey: getListAppraisalsQueryKey(listParams),
-      enabled: !isEmployee || matchedEmployee != null || employeeRows.length > 0,
+      // Employees only load their own appraisals (linked employeeId required).
+      enabled: isHr || linkedEmployeeId > 0,
     },
   });
 
@@ -78,18 +70,11 @@ export default function Performance() {
 
   const rows = useMemo(() => {
     const all = asArray<Appraisal>(appraisals);
-    if (isEmployee && matchedEmployee) {
-      return all.filter((a) => a.employeeId === matchedEmployee.id);
-    }
-    if (isEmployee && user) {
-      return all.filter(
-        (a) =>
-          a.employeeName === user.name ||
-          a.employeeName.toLowerCase().includes(user.username.toLowerCase()),
-      );
+    if (isEmployee && linkedEmployeeId > 0) {
+      return all.filter((a) => a.employeeId === linkedEmployeeId);
     }
     return all;
-  }, [appraisals, isEmployee, matchedEmployee, user]);
+  }, [appraisals, isEmployee, linkedEmployeeId]);
 
   const handleCreate = async (
     data: Parameters<typeof createAppraisal.mutateAsync>[0]["data"],

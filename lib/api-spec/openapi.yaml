@@ -76,10 +76,10 @@ paths:
             schema: { $ref: "#/components/schemas/EmployeeInput" }
       responses:
         "201":
-          description: Created
+          description: Created employee profile with one-time login credentials
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Employee" }
+              schema: { $ref: "#/components/schemas/EmployeeCreateResult" }
 
   /employees/expiring-licenses:
     get:
@@ -958,6 +958,24 @@ components:
         slBalance: { type: number, nullable: true }
         status: { type: string, nullable: true }
 
+    EmployeeAccountCredentials:
+      type: object
+      required: [username, temporaryPassword]
+      properties:
+        username: { type: string }
+        temporaryPassword: { type: string }
+
+    EmployeeCreateResult:
+      allOf:
+        - $ref: "#/components/schemas/Employee"
+        - type: object
+          properties:
+            account:
+              allOf:
+                - $ref: "#/components/schemas/EmployeeAccountCredentials"
+              nullable: true
+              description: One-time credentials shown to HR after account creation
+
     Requirement:
       type: object
       required: [label, kind, weight]
@@ -1733,4 +1751,9 @@ components:
       properties:
         onboarding: { $ref: "#/components/schemas/Onboarding" }
         employee: { $ref: "#/components/schemas/Employee" }
+        account:
+          allOf:
+            - $ref: "#/components/schemas/EmployeeAccountCredentials"
+          nullable: true
+          description: One-time credentials shown to HR after account creation
 

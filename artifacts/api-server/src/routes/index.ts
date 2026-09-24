@@ -13,10 +13,12 @@ import grievancesRouter from "./grievances";
 import incidentsRouter from "./incidents";
 import offboardingsRouter from "./offboardings";
 import onboardingsRouter from "./onboardings";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
 router.use(dashboardRouter);
 router.use(employeesRouter);
 router.use(jobsRouter);

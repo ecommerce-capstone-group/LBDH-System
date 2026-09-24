@@ -27,12 +27,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  EmployeeCredentialsDialog,
+  type EmployeeAccountCredentials,
+} from "@/components/employee-credentials-dialog";
 
 export default function Employees() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [credentials, setCredentials] = useState<EmployeeAccountCredentials | null>(null);
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [department, setDepartment] = useState("");
@@ -68,7 +73,7 @@ export default function Employees() {
       return;
     }
     try {
-      await createEmployee.mutateAsync({
+      const created = await createEmployee.mutateAsync({
         data: {
           name: name.trim(),
           role: role.trim(),
@@ -85,9 +90,19 @@ export default function Employees() {
       });
       await queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-      toast.success("Employee added.");
       resetForm();
       setAddOpen(false);
+      if (created.account?.username && created.account.temporaryPassword) {
+        setCredentials({
+          username: created.account.username,
+          temporaryPassword: created.account.temporaryPassword,
+          employeeName: created.name,
+          employeeCode: `EMP-${String(created.id).padStart(4, "0")}`,
+        });
+        toast.success("Employee added. Login credentials are shown once.");
+      } else {
+        toast.success("Employee added.");
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not create employee.";
       toast.error(msg);
@@ -110,11 +125,19 @@ export default function Employees() {
         </Button>
       </div>
 
+      <EmployeeCredentialsDialog
+        credentials={credentials}
+        onClose={() => setCredentials(null)}
+      />
+
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add employee</DialogTitle>
-            <DialogDescription>Create a new staff record. Required fields are marked.</DialogDescription>
+            <DialogDescription>
+              Create a staff profile and linked Self-Service login. Credentials are
+              shown once after saving.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">

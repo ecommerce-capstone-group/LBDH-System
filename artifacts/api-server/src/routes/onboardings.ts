@@ -9,6 +9,7 @@ import {
   type PreEmploymentRequirement,
 } from "@workspace/db";
 import { eq, desc, and, sql } from "drizzle-orm";
+import { provisionEmployeeAccount } from "../lib/employee-accounts";
 
 const router: IRouter = Router();
 
@@ -277,6 +278,12 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
       })
       .returning();
 
+    const account = await provisionEmployeeAccount({
+      employeeId: employee!.id,
+      name: employee!.name,
+      email: employee!.email,
+    });
+
     const [onboarding] = await db
       .update(onboardings)
       .set({
@@ -304,7 +311,16 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
       }
     }
 
-    res.status(201).json({ onboarding, employee });
+    res.status(201).json({
+      onboarding,
+      employee,
+      account: account
+        ? {
+            username: account.username,
+            temporaryPassword: account.temporaryPassword,
+          }
+        : null,
+    });
   } catch (err) {
     console.error("create employee from onboarding failed", err);
     res.status(500).json({ error: "Could not create employee from onboarding" });

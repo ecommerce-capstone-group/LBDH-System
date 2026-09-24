@@ -1,6 +1,7 @@
 import {
   db,
   employees,
+  employeeAccounts,
   jobs,
   applicants,
   attendance,
@@ -19,11 +20,17 @@ import type {
   ApprovalStep,
   AppraisalCriterionScore,
 } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   allCriteriaForTemplate,
   NON_SUPERVISORY_TEMPLATE,
   SUPERVISORY_TEMPLATE,
 } from "@workspace/db/appraisal-templates";
+import { createHash, randomBytes } from "crypto";
+
+function hashPassword(password: string, salt: string): string {
+  return createHash("sha256").update(`${salt}:${password}`).digest("hex");
+}
 
 function archivedAppraisalSteps(templateType: "non_supervisory" | "supervisory") {
   const names =
@@ -67,8 +74,47 @@ function buildScores(
 }
 
 async function run() {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS employee_accounts (
+      id serial PRIMARY KEY,
+      employee_id integer NOT NULL UNIQUE REFERENCES employees(id) ON DELETE CASCADE,
+      username text NOT NULL UNIQUE,
+      password_hash text NOT NULL,
+      password_salt text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`,
+  );
+
   const existing = await db.select().from(employees).limit(1);
   if (existing.length > 0) {
+    // Backfill login accounts for profiles that do not have one yet.
+    const allEmps = await db.select().from(employees);
+    for (let i = 0; i < allEmps.length; i++) {
+      const emp = allEmps[i]!;
+      const [acct] = await db
+        .select()
+        .from(employeeAccounts)
+        .where(eq(employeeAccounts.employeeId, emp.id));
+      if (acct) continue;
+      const [demoTaken] = await db
+        .select()
+        .from(employeeAccounts)
+        .where(eq(employeeAccounts.username, "employee"));
+      const useDemo = i === 0 && !demoTaken;
+      const username = useDemo
+        ? "employee"
+        : emp.email.split("@")[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, ".") ||
+          `emp${emp.id}`;
+      const temporaryPassword = useDemo ? "employee123" : "Temp1234!";
+      const passwordSalt = randomBytes(16).toString("hex");
+      await db.insert(employeeAccounts).values({
+        employeeId: emp.id,
+        username,
+        passwordHash: hashPassword(temporaryPassword, passwordSalt),
+        passwordSalt,
+      });
+      console.log(`Created account for ${emp.name}: ${username} / ${temporaryPassword}`);
+    }
     console.log("Already seeded.");
     await pool.end();
     return;
@@ -144,6 +190,26 @@ async function run() {
       },
     ])
     .returning();
+
+  // Linked Self-Service logins for seeded employees.
+  // First employee gets the classic demo login employee / employee123.
+  for (let i = 0; i < emps.length; i++) {
+    const emp = emps[i]!;
+    const username =
+      i === 0
+        ? "employee"
+        : emp.email.split("@")[0]?.toLowerCase().replace(/[^a-z0-9._-]/g, ".") ||
+          `emp${emp.id}`;
+    const temporaryPassword = i === 0 ? "employee123" : "Temp1234!";
+    const passwordSalt = randomBytes(16).toString("hex");
+    await db.insert(employeeAccounts).values({
+      employeeId: emp.id,
+      username,
+      passwordHash: hashPassword(temporaryPassword, passwordSalt),
+      passwordSalt,
+    });
+    console.log(`Employee login: ${username} / ${temporaryPassword}`);
+  }
 
   const nurseReq: Requirement[] = [
     { label: "Active PRC License", kind: "checkbox", weight: 30 },

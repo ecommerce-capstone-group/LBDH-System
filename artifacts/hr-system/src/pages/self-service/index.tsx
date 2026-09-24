@@ -11,13 +11,12 @@ import {
   getListRequestsQueryKey,
   useListLeaves,
   getListLeavesQueryKey,
-  useListEmployees,
-  getListEmployeesQueryKey,
+  useGetEmployee,
+  getGetEmployeeQueryKey,
   useGetLeaveBalance,
   getGetLeaveBalanceQueryKey,
   useCreateRequest,
   useCreateLeave,
-  type Employee,
   type HrRequest,
   type HrRequestInput,
   type LeaveRequest,
@@ -140,25 +139,20 @@ export default function SelfService() {
   const [relieverDates, setRelieverDates] = useState("");
   const [relieverReason, setRelieverReason] = useState("");
 
-  const { data: employees } = useListEmployees(undefined, {
-    query: { queryKey: getListEmployeesQueryKey() },
+  const linkedEmployeeId =
+    user?.role === "employee" && user.employeeId != null ? user.employeeId : 0;
+
+  const { data: employee } = useGetEmployee(linkedEmployeeId, {
+    query: {
+      queryKey: getGetEmployeeQueryKey(linkedEmployeeId),
+      enabled: linkedEmployeeId > 0,
+    },
   });
-  const employeeList = asArray<Employee>(employees);
 
-  const employee = useMemo((): Employee | null => {
-    if (!user) return null;
-    const found = employeeList.find(
-      (item) =>
-        item.name === user.name ||
-        item.email?.toLowerCase().includes(user.username),
-    );
-    return found ?? employeeList[0] ?? null;
-  }, [employeeList, user]);
-
-  const employeeId = employee?.id ?? 1;
+  const employeeId = linkedEmployeeId;
   const employeeLabel = employee
     ? `${employee.name} (EMP-${String(employee.id).padStart(4, "0")})`
-    : "Employee";
+    : user?.name ?? "Employee";
   const employeeDept = employee?.department ?? "—";
   const employeePosition = employee?.role ?? "—";
 
@@ -173,6 +167,7 @@ export default function SelfService() {
       query: {
         queryKey: getListRequestsQueryKey({ employeeId }),
         refetchOnMount: "always",
+        enabled: employeeId > 0,
       },
     },
   );
@@ -183,6 +178,7 @@ export default function SelfService() {
       query: {
         queryKey: getListLeavesQueryKey({ employeeId }),
         refetchOnMount: "always",
+        enabled: employeeId > 0,
       },
     },
   );

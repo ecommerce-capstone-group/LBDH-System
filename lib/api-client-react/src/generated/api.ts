@@ -30,6 +30,7 @@ import type {
   AttendanceSummary,
   DashboardSummary,
   Employee,
+  EmployeeCreateResult,
   EmployeeIncident,
   EmployeeIncidentInput,
   EmployeeIncidentUpdate,
@@ -323,8 +324,8 @@ export const getCreateEmployeeUrl = () => {
 export const createEmployee = async (
   employeeInput: EmployeeInput,
   options?: RequestInit,
-): Promise<Employee> => {
-  return customFetch<Employee>(getCreateEmployeeUrl(), {
+): Promise<EmployeeCreateResult> => {
+  return customFetch<EmployeeCreateResult>(getCreateEmployeeUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },

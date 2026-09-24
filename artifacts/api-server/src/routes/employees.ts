@@ -5,6 +5,7 @@ import {
   CreateEmployeeBody,
   UpdateEmployeeBody,
 } from "@workspace/api-zod";
+import { provisionEmployeeAccount } from "../lib/employee-accounts";
 
 const router: IRouter = Router();
 
@@ -61,24 +62,44 @@ router.get("/employees/:id", async (req, res) => {
 });
 
 router.post("/employees", async (req, res) => {
-  const body = CreateEmployeeBody.parse(req.body);
-  const [row] = await db
-    .insert(employees)
-    .values({
-      name: body.name,
-      role: body.role,
-      department: body.department,
-      email: body.email,
-      phone: body.phone ?? null,
-      licenseName: body.licenseName ?? null,
-      licenseExpiry: body.licenseExpiry ?? null,
-      documents: body.documents ?? null,
-      vlBalance: body.vlBalance ?? 15,
-      slBalance: body.slBalance ?? 15,
-      status: body.status ?? "active",
-    })
-    .returning();
-  res.status(201).json(row);
+  try {
+    const body = CreateEmployeeBody.parse(req.body);
+    const [row] = await db
+      .insert(employees)
+      .values({
+        name: body.name,
+        role: body.role,
+        department: body.department,
+        email: body.email,
+        phone: body.phone ?? null,
+        licenseName: body.licenseName ?? null,
+        licenseExpiry: body.licenseExpiry ?? null,
+        documents: body.documents ?? null,
+        vlBalance: body.vlBalance ?? 15,
+        slBalance: body.slBalance ?? 15,
+        status: body.status ?? "active",
+      })
+      .returning();
+
+    const account = await provisionEmployeeAccount({
+      employeeId: row!.id,
+      name: row!.name,
+      email: row!.email,
+    });
+
+    res.status(201).json({
+      ...row,
+      account: account
+        ? {
+            username: account.username,
+            temporaryPassword: account.temporaryPassword,
+          }
+        : null,
+    });
+  } catch (err) {
+    console.error("create employee failed", err);
+    res.status(500).json({ error: "Could not create employee" });
+  }
 });
 
 router.patch("/employees/:id", async (req, res) => {

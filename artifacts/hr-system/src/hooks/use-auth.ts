@@ -7,6 +7,8 @@ export interface User {
   username: string;
   role: Role;
   name: string;
+  /** Linked employee profile id — set for employee role accounts. */
+  employeeId?: number | null;
 }
 
 const STORAGE_KEY = "hr_user";
@@ -23,7 +25,21 @@ function readStored(): User | null {
       window.localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    return parsed;
+    if (
+      parsed.role === "employee" &&
+      (parsed.employeeId == null || !Number.isFinite(Number(parsed.employeeId)))
+    ) {
+      // Legacy demo employee sessions without a linked profile — force re-login.
+      window.localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return {
+      ...parsed,
+      employeeId:
+        parsed.employeeId != null && Number.isFinite(Number(parsed.employeeId))
+          ? Number(parsed.employeeId)
+          : null,
+    };
   } catch {
     window.localStorage.removeItem(STORAGE_KEY);
     return null;
@@ -44,12 +60,25 @@ export function useAuth() {
     };
   }, []);
 
-  const login = useCallback((username: string, role: Role, name: string) => {
-    const u: User = { username, role, name };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    setUser(u);
-    window.dispatchEvent(new Event(AUTH_EVENT));
-  }, []);
+  const login = useCallback(
+    (
+      username: string,
+      role: Role,
+      name: string,
+      employeeId?: number | null,
+    ) => {
+      const u: User = {
+        username,
+        role,
+        name,
+        employeeId: employeeId ?? null,
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+      setUser(u);
+      window.dispatchEvent(new Event(AUTH_EVENT));
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
     window.localStorage.removeItem(STORAGE_KEY);

@@ -25,6 +25,8 @@ export * from "./attendanceInput";
 export * from "./attendanceSummary";
 export * from "./dashboardSummary";
 export * from "./employee";
+export * from "./employeeAccountCredentials";
+export * from "./employeeCreateResult";
 export * from "./employeeIncident";
 export * from "./employeeIncidentInput";
 export * from "./employeeIncidentUpdate";
