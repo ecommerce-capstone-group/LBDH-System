@@ -1,10 +1,22 @@
+import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useGetDashboardSummary, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
+import {
+  useGetDashboardSummary,
+  getGetDashboardSummaryQueryKey,
+  useListEmployees,
+  getListEmployeesQueryKey,
+  useListLeaves,
+  getListLeavesQueryKey,
+  useGetLeaveBalance,
+  getGetLeaveBalanceQueryKey,
+  type Employee,
+  type LeaveRequest,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, Briefcase, UserCheck, AlertCircle, FileText } from "lucide-react";
 import { Link } from "wouter";
-import { isDashboardSummary } from "@/lib/api-guards";
+import { isDashboardSummary, asArray } from "@/lib/api-guards";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -18,6 +30,44 @@ export default function Dashboard() {
 
   const summaryData = isDashboardSummary(summary) ? summary : null;
 
+  const { data: employees } = useListEmployees(undefined, {
+    query: {
+      queryKey: getListEmployeesQueryKey(),
+      enabled: user?.role === "employee",
+    },
+  });
+  const employeeList = asArray<Employee>(employees);
+  const employee = useMemo((): Employee | null => {
+    if (!user || user.role !== "employee") return null;
+    const found = employeeList.find(
+      (item) =>
+        item.name === user.name ||
+        item.email?.toLowerCase().includes(user.username),
+    );
+    return found ?? employeeList[0] ?? null;
+  }, [employeeList, user]);
+  const employeeId = employee?.id ?? 0;
+
+  const { data: leaveBalance } = useGetLeaveBalance(employeeId, {
+    query: {
+      queryKey: getGetLeaveBalanceQueryKey(employeeId),
+      enabled: user?.role === "employee" && employeeId > 0,
+    },
+  });
+
+  const { data: leaves } = useListLeaves(
+    { employeeId },
+    {
+      query: {
+        queryKey: getListLeavesQueryKey({ employeeId }),
+        enabled: user?.role === "employee" && employeeId > 0,
+      },
+    },
+  );
+  const pendingLeaveCount = asArray<LeaveRequest>(leaves).filter(
+    (l) => l.status === "pending",
+  ).length;
+
   if (user?.role === "employee") {
     return (
       <div className="space-y-6">
@@ -29,12 +79,14 @@ export default function Dashboard() {
         <div className="grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Leave Balance</CardTitle>
+              <CardTitle className="text-sm font-medium">Vacation Leave</CardTitle>
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12 Days</div>
-              <p className="text-xs text-muted-foreground">Vacation Leave remaining</p>
+              <div className="text-2xl font-bold">
+                {leaveBalance ? `${leaveBalance.vlBalance} Days` : "…"}
+              </div>
+              <p className="text-xs text-muted-foreground">VL remaining</p>
             </CardContent>
           </Card>
           <Card>
@@ -43,8 +95,10 @@ export default function Dashboard() {
               <HeartPulseIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">15 Days</div>
-              <p className="text-xs text-muted-foreground">Sick Leave remaining</p>
+              <div className="text-2xl font-bold">
+                {leaveBalance ? `${leaveBalance.slBalance} Days` : "…"}
+              </div>
+              <p className="text-xs text-muted-foreground">SL remaining</p>
             </CardContent>
           </Card>
           <Card>
@@ -53,7 +107,7 @@ export default function Dashboard() {
               <ClockIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1</div>
+              <div className="text-2xl font-bold">{pendingLeaveCount}</div>
               <p className="text-xs text-muted-foreground">Awaiting approval</p>
             </CardContent>
           </Card>

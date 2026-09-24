@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, leaves, employees } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import {
   CreateLeaveBody,
   AdvanceLeaveBody,
@@ -8,6 +8,12 @@ import {
 import type { ApprovalStep } from "@workspace/db";
 
 const router: IRouter = Router();
+
+function balanceFieldForType(leaveType: string): "vlBalance" | "slBalance" | null {
+  if (leaveType === "VL") return "vlBalance";
+  if (leaveType === "SL") return "slBalance";
+  return null;
+}
 
 const initialSteps = (): ApprovalStep[] => [
   { name: "Unit Head", status: "pending" },
@@ -29,6 +35,34 @@ router.get("/leaves", async (req, res) => {
 
 router.post("/leaves", async (req, res) => {
   const body = CreateLeaveBody.parse(req.body);
+
+  if (body.days <= 0) {
+    return res.status(400).json({ error: "Leave days must be greater than zero" });
+  }
+
+  const [emp] = await db
+    .select()
+    .from(employees)
+    .where(eq(employees.id, body.employeeId));
+  if (!emp) {
+    return res.status(404).json({ error: "Employee not found" });
+  }
+
+  // Enforce remaining balance for VL / SL at request time.
+  // Balance is not deducted until the request is fully approved.
+  const field = balanceFieldForType(body.leaveType);
+  if (field) {
+    const remaining = field === "vlBalance" ? emp.vlBalance : emp.slBalance;
+    if (body.days > remaining) {
+      return res.status(400).json({
+        error: `Insufficient ${body.leaveType} balance. Remaining: ${remaining} day(s), requested: ${body.days} day(s).`,
+        leaveType: body.leaveType,
+        remaining,
+        requested: body.days,
+      });
+    }
+  }
+
   const [row] = await db
     .insert(leaves)
     .values({
@@ -61,6 +95,7 @@ router.post("/leaves/:id/advance", async (req, res) => {
 
   const ts = new Date().toISOString();
   if (body.decision === "reject") {
+    // Rejected requests never deduct leave balance.
     steps[idx] = {
       ...steps[idx]!,
       status: "rejected",
@@ -104,16 +139,37 @@ router.post("/leaves/:id/advance", async (req, res) => {
     currentStep = steps[next]!.name;
   }
 
+  // Deduct VL/SL only when the request reaches final approval.
+  // Pending and rejected requests never change balances.
   if (status === "approved") {
-    const field = existing.leaveType === "VL" ? "vlBalance" : "slBalance";
-    await db
-      .update(employees)
-      .set({
-        [field]: sql`${
-          field === "vlBalance" ? employees.vlBalance : employees.slBalance
-        } - ${existing.days}`,
-      })
-      .where(eq(employees.id, existing.employeeId));
+    const field = balanceFieldForType(existing.leaveType);
+    if (field) {
+      const [emp] = await db
+        .select()
+        .from(employees)
+        .where(eq(employees.id, existing.employeeId));
+      if (!emp) {
+        return res.status(404).json({ error: "Employee not found" });
+      }
+      const remaining = field === "vlBalance" ? emp.vlBalance : emp.slBalance;
+      if (existing.days > remaining) {
+        return res.status(400).json({
+          error: `Cannot approve: insufficient ${existing.leaveType} balance. Remaining: ${remaining} day(s), requested: ${existing.days} day(s).`,
+          leaveType: existing.leaveType,
+          remaining,
+          requested: existing.days,
+        });
+      }
+
+      await db
+        .update(employees)
+        .set({
+          [field]: sql`${
+            field === "vlBalance" ? employees.vlBalance : employees.slBalance
+          } - ${existing.days}`,
+        })
+        .where(eq(employees.id, existing.employeeId));
+    }
   }
 
   const [row] = await db
@@ -132,17 +188,19 @@ router.get("/leaves/balances/:employeeId", async (req, res) => {
     .where(eq(employees.id, employeeId));
   if (!emp) return res.status(404).json({ error: "Not found" });
 
+  // Used totals count approved leave only — pending/rejected do not reduce balance.
   const used = await db
     .select({
       leaveType: leaves.leaveType,
       total: sql<number>`coalesce(sum(days), 0)::float`,
     })
     .from(leaves)
-    .where(eq(leaves.employeeId, employeeId))
+    .where(
+      and(eq(leaves.employeeId, employeeId), eq(leaves.status, "approved")),
+    )
     .groupBy(leaves.leaveType);
 
-  const vlUsed =
-    used.find((u) => u.leaveType === "VL" && true)?.total ?? 0;
+  const vlUsed = used.find((u) => u.leaveType === "VL")?.total ?? 0;
   const slUsed = used.find((u) => u.leaveType === "SL")?.total ?? 0;
 
   res.json({

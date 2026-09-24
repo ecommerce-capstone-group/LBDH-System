@@ -12,6 +12,8 @@ import {
   getListLeavesQueryKey,
   useListEmployees,
   getListEmployeesQueryKey,
+  useGetLeaveBalance,
+  getGetLeaveBalanceQueryKey,
   useCreateRequest,
   useCreateLeave,
   type Employee,
@@ -19,6 +21,7 @@ import {
   type HrRequestInput,
   type LeaveRequest,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "sonner";
@@ -31,6 +34,8 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const BALANCED_LEAVE_TYPES = new Set(["VL", "SL"]);
 
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -86,6 +91,7 @@ function formatDetails(lines: Record<string, string | number | undefined>): stri
 
 export default function SelfService() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [activeRequest, setActiveRequest] = useState<ServiceRequestKind | null>(null);
 
   const [leaveType, setLeaveType] = useState("VL");
@@ -152,6 +158,25 @@ export default function SelfService() {
     { query: { queryKey: getListLeavesQueryKey({ employeeId }) } },
   );
 
+  const { data: leaveBalance } = useGetLeaveBalance(employeeId, {
+    query: {
+      queryKey: getGetLeaveBalanceQueryKey(employeeId),
+      enabled: Number.isFinite(employeeId) && employeeId > 0,
+    },
+  });
+
+  const remainingForType = useMemo(() => {
+    if (!leaveBalance) return null;
+    if (leaveType === "VL") return leaveBalance.vlBalance;
+    if (leaveType === "SL") return leaveBalance.slBalance;
+    return null;
+  }, [leaveBalance, leaveType]);
+
+  const exceedsBalance =
+    remainingForType !== null &&
+    BALANCED_LEAVE_TYPES.has(leaveType) &&
+    leaveDays > remainingForType;
+
   const leaveRows = asArray<LeaveRequest>(leaves);
   const requestRows = asArray<HrRequest>(requests);
 
@@ -167,27 +192,46 @@ export default function SelfService() {
       toast.error("End date must be on or after start date.");
       return;
     }
-    await createLeave.mutateAsync({
-      data: {
-        employeeId,
-        leaveType,
-        startDate: leaveStartDate,
-        endDate: leaveEndDate,
-        days: leaveDays,
-        reason: formatDetails({
-          Purpose: leaveReason.trim(),
-          "Contact during leave": leaveContact.trim() || undefined,
-          "Relief officer": leaveReliever.trim() || undefined,
-          Department: employeeDept,
-          Position: employeePosition,
-        }),
-      },
-    });
-    toast.success("Leave request submitted for approval.");
-    setLeaveReason("");
-    setLeaveContact("");
-    setLeaveReliever("");
-    setActiveRequest(null);
+    if (
+      BALANCED_LEAVE_TYPES.has(leaveType) &&
+      remainingForType !== null &&
+      leaveDays > remainingForType
+    ) {
+      toast.error(
+        `Insufficient ${leaveType} balance. You have ${remainingForType} day(s) remaining but requested ${leaveDays}.`,
+      );
+      return;
+    }
+    try {
+      await createLeave.mutateAsync({
+        data: {
+          employeeId,
+          leaveType,
+          startDate: leaveStartDate,
+          endDate: leaveEndDate,
+          days: leaveDays,
+          reason: formatDetails({
+            Purpose: leaveReason.trim(),
+            "Contact during leave": leaveContact.trim() || undefined,
+            "Relief officer": leaveReliever.trim() || undefined,
+            Department: employeeDept,
+            Position: employeePosition,
+          }),
+        },
+      });
+      await queryClient.invalidateQueries({
+        queryKey: getGetLeaveBalanceQueryKey(employeeId),
+      });
+      toast.success(
+        "Leave request submitted for approval. Balance is deducted only after approval.",
+      );
+      setLeaveReason("");
+      setLeaveContact("");
+      setLeaveReliever("");
+      setActiveRequest(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not submit leave request.");
+    }
   };
 
   const submitOvertime = async () => {
@@ -332,6 +376,14 @@ export default function SelfService() {
                 <span className="text-gray-500">Date filed:</span>{" "}
                 {new Date().toLocaleDateString()}
               </p>
+              <p>
+                <span className="text-gray-500">VL remaining:</span>{" "}
+                {leaveBalance ? `${leaveBalance.vlBalance} day(s)` : "…"}
+              </p>
+              <p>
+                <span className="text-gray-500">SL remaining:</span>{" "}
+                {leaveBalance ? `${leaveBalance.slBalance} day(s)` : "…"}
+              </p>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -353,6 +405,31 @@ export default function SelfService() {
                 <Label>Total days</Label>
                 <Input value={leaveDays > 0 ? String(leaveDays) : "—"} readOnly />
               </div>
+              {BALANCED_LEAVE_TYPES.has(leaveType) && (
+                <div className="grid gap-2 sm:col-span-2">
+                  <Label>Remaining {leaveType} balance</Label>
+                  <Input
+                    value={
+                      remainingForType !== null
+                        ? `${remainingForType} day(s) available`
+                        : "Loading…"
+                    }
+                    readOnly
+                    className={exceedsBalance ? "border-destructive text-destructive" : undefined}
+                  />
+                  {exceedsBalance && (
+                    <p className="text-sm text-destructive">
+                      Requested {leaveDays} day(s) exceeds your remaining {leaveType}{" "}
+                      balance of {remainingForType} day(s). Reduce the date range or choose
+                      another leave type.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Leave is deducted from your balance only after the request is approved.
+                    Pending and rejected requests do not reduce your balance.
+                  </p>
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label>Start date *</Label>
                 <Input
@@ -397,7 +474,11 @@ export default function SelfService() {
                 />
               </div>
             </div>
-            <Button onClick={submitLeave} className="w-full sm:w-auto">
+            <Button
+              onClick={submitLeave}
+              className="w-full sm:w-auto"
+              disabled={exceedsBalance || createLeave.isPending}
+            >
               Submit leave application
             </Button>
           </CardContent>
