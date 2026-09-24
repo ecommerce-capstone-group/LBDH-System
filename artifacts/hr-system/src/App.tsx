@@ -84,10 +84,10 @@ function App() {
             <Route path="/recruitment">{() => <ProtectedRoute component={Recruitment} roles={["hr"]} />}</Route>
             <Route path="/recruitment/:id">{() => <ProtectedRoute component={JobDetail} roles={["hr"]} />}</Route>
             <Route path="/attendance">{() => <ProtectedRoute component={Attendance} roles={["hr"]} />}</Route>
-            <Route path="/leaves">{() => <ProtectedRoute component={Leaves} roles={["hr"]} />}</Route>
-            <Route path="/requests">{() => <ProtectedRoute component={Requests} roles={["hr"]} />}</Route>
+            <Route path="/leaves">{() => <ProtectedRoute component={Leaves} roles={["hr", "unit_head"]} />}</Route>
+            <Route path="/requests">{() => <ProtectedRoute component={Requests} roles={["hr", "unit_head"]} />}</Route>
             <Route path="/performance">{() => <ProtectedRoute component={Performance} roles={["hr", "unit_head", "employee"]} />}</Route>
-            <Route path="/training">{() => <ProtectedRoute component={Training} roles={["hr"]} />}</Route>
+            <Route path="/training">{() => <ProtectedRoute component={Training} roles={["hr", "unit_head"]} />}</Route>
             <Route path="/incidents">{() => <ProtectedRoute component={Incidents} roles={["hr"]} />}</Route>
             <Route path="/onboarding">{() => <ProtectedRoute component={Onboarding} roles={["hr"]} />}</Route>
             <Route path="/offboarding">{() => <ProtectedRoute component={Offboarding} roles={["hr"]} />}</Route>

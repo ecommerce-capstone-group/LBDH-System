@@ -47,6 +47,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const unitHeadLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/leaves", label: "Leave Approvals", icon: CalendarOff },
+    { href: "/requests", label: "Request Approvals", icon: FileText },
+    { href: "/training", label: "Training", icon: GraduationCap },
     { href: "/performance", label: "Performance", icon: TrendingUp },
   ];
 

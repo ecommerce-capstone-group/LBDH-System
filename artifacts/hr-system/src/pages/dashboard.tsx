@@ -143,19 +143,52 @@ export default function Dashboard() {
             Welcome, {user.name}
           </h2>
           <p className="text-gray-500">
-            Review and approve performance appraisals awaiting Unit Head approval.
+            Review and approve leave, employee requests, training, and appraisals
+            awaiting Unit Head approval.
           </p>
         </div>
-        <Link href="/performance">
-          <Card className="hover:border-primary cursor-pointer transition-colors max-w-lg">
-            <CardHeader>
-              <CardTitle>Performance Appraisals</CardTitle>
-              <p className="text-sm text-gray-500">
-                Open the queue to approve or reject appraisals at the Unit Head stage.
-              </p>
-            </CardHeader>
-          </Card>
-        </Link>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
+          <Link href="/leaves">
+            <Card className="hover:border-primary cursor-pointer transition-colors h-full">
+              <CardHeader>
+                <CardTitle>Leave Approvals</CardTitle>
+                <p className="text-sm text-gray-500">
+                  Approve or reject leave at the Unit Head stage.
+                </p>
+              </CardHeader>
+            </Card>
+          </Link>
+          <Link href="/requests">
+            <Card className="hover:border-primary cursor-pointer transition-colors h-full">
+              <CardHeader>
+                <CardTitle>Request Approvals</CardTitle>
+                <p className="text-sm text-gray-500">
+                  Overtime, loan, certificate, reliever, and related requests.
+                </p>
+              </CardHeader>
+            </Card>
+          </Link>
+          <Link href="/training">
+            <Card className="hover:border-primary cursor-pointer transition-colors h-full">
+              <CardHeader>
+                <CardTitle>Training Requests</CardTitle>
+                <p className="text-sm text-gray-500">
+                  Departmental training requests awaiting Unit Head.
+                </p>
+              </CardHeader>
+            </Card>
+          </Link>
+          <Link href="/performance">
+            <Card className="hover:border-primary cursor-pointer transition-colors h-full">
+              <CardHeader>
+                <CardTitle>Performance Appraisals</CardTitle>
+                <p className="text-sm text-gray-500">
+                  Approve or reject appraisals at the Unit Head stage.
+                </p>
+              </CardHeader>
+            </Card>
+          </Link>
+        </div>
       </div>
     );
   }

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ApprovalStepper } from "@/components/approval-stepper";
+import { ApprovalStageControls } from "@/components/approval-stage-controls";
 import { TrainingProgressBar } from "@/components/training-progress-bar";
 import {
   useListTrainingPlans,
@@ -27,6 +27,10 @@ import {
   getPlanProgress,
   getRecordProgress,
 } from "@/lib/training-progress";
+import {
+  finalApprovalDate,
+  formatApprovalDate,
+} from "@/lib/approval-display";
 import { useQueryClient } from "@tanstack/react-query";
 
 type Props = {
@@ -234,20 +238,44 @@ export function EmployeeTrainingPanel({ employeeId, department }: Props) {
             <CardTitle className="text-base">My training requests</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {myRequests.map((p) => (
-              <div key={p.id}>
-                <div className="flex justify-between mb-2">
-                  <span className="font-medium text-sm">{p.title}</span>
-                  <StatusBadge status={p.status} />
+            {myRequests.map((p) => {
+              const approvedOn = finalApprovalDate(p.status, p.steps);
+              return (
+                <div key={p.id} className="space-y-3 border-b pb-4 last:border-0 last:pb-0">
+                  <div className="flex justify-between gap-2">
+                    <div>
+                      <span className="font-medium text-sm">{p.title}</span>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Submitted {new Date(p.createdAt).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-primary">
+                        Preferred date: {formatTrainingDate(p.plannedDate)}
+                      </p>
+                    </div>
+                    <StatusBadge status={p.status} />
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                    <dt>Approval stage</dt>
+                    <dd className="font-medium text-gray-900">
+                      {p.status === "approved" ? "Completed" : p.currentStep || "—"}
+                    </dd>
+                    <dt>Approval date</dt>
+                    <dd className="font-medium text-gray-900">
+                      {formatApprovalDate(approvedOn)}
+                    </dd>
+                  </dl>
+                  {p.steps?.length > 0 ? (
+                    <ApprovalStageControls
+                      steps={p.steps}
+                      currentStep={p.currentStep}
+                      overallStatus={p.status}
+                      actorName=""
+                      readOnly
+                    />
+                  ) : null}
                 </div>
-                <p className="text-xs text-primary mb-2">
-                  Preferred date: {formatTrainingDate(p.plannedDate)}
-                </p>
-                {p.steps?.length > 0 ? (
-                  <ApprovalStepper steps={p.steps} currentStep={p.currentStep} />
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       ) : null}

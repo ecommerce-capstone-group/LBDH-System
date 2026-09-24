@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { EmployeeTrainingPanel } from "@/components/employee-training-panel";
+import { ApprovalStageControls } from "@/components/approval-stage-controls";
 import {
   useListRequests,
   getListRequestsQueryKey,
@@ -27,10 +28,15 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { toast } from "sonner";
 import { asArray } from "@/lib/api-guards";
 import {
+  finalApprovalDate,
+  formatApprovalDate,
+} from "@/lib/approval-display";
+import {
   CalendarDays,
   Clock,
   FileBadge,
   Landmark,
+  Users,
   ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,7 +46,12 @@ const BALANCED_LEAVE_TYPES = new Set(["VL", "SL"]);
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-type ServiceRequestKind = "leave" | "overtime" | "certificate" | "loan";
+type ServiceRequestKind =
+  | "leave"
+  | "overtime"
+  | "certificate"
+  | "loan"
+  | "reliever";
 
 const requestOptions: {
   id: ServiceRequestKind;
@@ -72,8 +83,13 @@ const requestOptions: {
     description: "Salary or emergency loan application",
     icon: Landmark,
   },
+  {
+    id: "reliever",
+    label: "Reliever",
+    description: "Request a covering / relief officer",
+    icon: Users,
+  },
 ];
-
 function diffLeaveDays(start: string, end: string): number {
   if (!start || !end) return 0;
   const s = new Date(start);
@@ -120,10 +136,13 @@ export default function SelfService() {
   const [loanTerm, setLoanTerm] = useState("");
   const [loanRemarks, setLoanRemarks] = useState("");
 
+  const [relieverName, setRelieverName] = useState("");
+  const [relieverDates, setRelieverDates] = useState("");
+  const [relieverReason, setRelieverReason] = useState("");
+
   const { data: employees } = useListEmployees(undefined, {
     query: { queryKey: getListEmployeesQueryKey() },
   });
-
   const employeeList = asArray<Employee>(employees);
 
   const employee = useMemo((): Employee | null => {
@@ -141,7 +160,7 @@ export default function SelfService() {
     ? `${employee.name} (EMP-${String(employee.id).padStart(4, "0")})`
     : "Employee";
   const employeeDept = employee?.department ?? "—";
-  const employeePosition = employee?.position ?? "—";
+  const employeePosition = employee?.role ?? "—";
 
   const leaveDays = useMemo(
     () => diffLeaveDays(leaveStartDate, leaveEndDate),
@@ -150,14 +169,34 @@ export default function SelfService() {
 
   const { data: requests, isLoading: isRequestsLoading } = useListRequests(
     { employeeId },
-    { query: { queryKey: getListRequestsQueryKey({ employeeId }) } },
+    {
+      query: {
+        queryKey: getListRequestsQueryKey({ employeeId }),
+        refetchOnMount: "always",
+      },
+    },
   );
 
   const { data: leaves, isLoading: isLeavesLoading } = useListLeaves(
     { employeeId },
-    { query: { queryKey: getListLeavesQueryKey({ employeeId }) } },
+    {
+      query: {
+        queryKey: getListLeavesQueryKey({ employeeId }),
+        refetchOnMount: "always",
+      },
+    },
   );
 
+  const refreshMyRequests = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: getListLeavesQueryKey({ employeeId }),
+    });
+    await queryClient.invalidateQueries({
+      queryKey: getListRequestsQueryKey({ employeeId }),
+    });
+    await queryClient.invalidateQueries({ queryKey: ["/api/leaves"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
+  };
   const { data: leaveBalance } = useGetLeaveBalance(employeeId, {
     query: {
       queryKey: getGetLeaveBalanceQueryKey(employeeId),
@@ -222,10 +261,10 @@ export default function SelfService() {
       await queryClient.invalidateQueries({
         queryKey: getGetLeaveBalanceQueryKey(employeeId),
       });
+      await refreshMyRequests();
       toast.success(
         "Leave request submitted for approval. Balance is deducted only after approval.",
-      );
-      setLeaveReason("");
+      );      setLeaveReason("");
       setLeaveContact("");
       setLeaveReliever("");
       setActiveRequest(null);
@@ -264,6 +303,7 @@ export default function SelfService() {
         }),
       },
     });
+    await refreshMyRequests();
     toast.success("Overtime request submitted for approval.");
     setOtDate("");
     setOtHours("1");
@@ -297,6 +337,7 @@ export default function SelfService() {
         }),
       },
     });
+    await refreshMyRequests();
     toast.success("Certificate request submitted for approval.");
     setCertPurpose("");
     setCertRemarks("");
@@ -326,6 +367,7 @@ export default function SelfService() {
         }),
       },
     });
+    await refreshMyRequests();
     toast.success("Loan request submitted for approval.");
     setLoanAmount("");
     setLoanPurpose("");
@@ -334,6 +376,34 @@ export default function SelfService() {
     setActiveRequest(null);
   };
 
+  const submitReliever = async () => {
+    if (!relieverName.trim() || !relieverReason.trim()) {
+      toast.error("Reliever name and reason are required.");
+      return;
+    }
+    await createRequest.mutateAsync({
+      data: {
+        employeeId,
+        type: "reliever" as HrRequestInput["type"],
+        title: `Reliever — ${relieverName.trim()}`,
+        details: formatDetails({
+          "Employee name": employee?.name,
+          "Employee ID": `EMP-${String(employeeId).padStart(4, "0")}`,
+          Department: employeeDept,
+          Position: employeePosition,
+          "Proposed reliever": relieverName.trim(),
+          "Coverage dates": relieverDates.trim() || undefined,
+          Reason: relieverReason.trim(),
+        }),
+      },
+    });
+    await refreshMyRequests();
+    toast.success("Reliever request submitted for approval.");
+    setRelieverName("");
+    setRelieverDates("");
+    setRelieverReason("");
+    setActiveRequest(null);
+  };
   const renderRequestForm = () => {
     if (!activeRequest) return null;
 
@@ -579,7 +649,8 @@ export default function SelfService() {
             {backButton}
             <CardTitle>Certificate Request Form</CardTitle>
             <CardDescription>
-              Request official certificates from Human Resources.
+              Request official certificates from Human Resources. Routed to Unit
+              Head → Department Head.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-4">
@@ -645,72 +716,125 @@ export default function SelfService() {
       );
     }
 
+    if (activeRequest === "loan") {
+      return (
+        <Card className="border-primary/20 shadow-sm">
+          <CardHeader className="border-b bg-muted/30">
+            {backButton}
+            <CardTitle>Loan Application Form</CardTitle>
+            <CardDescription>
+              Salary or emergency loan request. Fully approved after Unit Head and
+              Department Head.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Loan type *</Label>
+                <select
+                  className={selectClass}
+                  value={loanType}
+                  onChange={(e) => setLoanType(e.target.value)}
+                >
+                  <option>Salary Loan</option>
+                  <option>Emergency Loan</option>
+                  <option>Multi-Purpose Loan</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Amount requested (PHP) *</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={loanAmount}
+                  onChange={(e) => setLoanAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Purpose of loan *</Label>
+              <Textarea
+                value={loanPurpose}
+                onChange={(e) => setLoanPurpose(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Preferred payment term</Label>
+              <Input
+                value={loanTerm}
+                onChange={(e) => setLoanTerm(e.target.value)}
+                placeholder="e.g. 6 months payroll deduction"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Remarks</Label>
+              <Textarea
+                value={loanRemarks}
+                onChange={(e) => setLoanRemarks(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <Button onClick={submitLoan} className="w-full sm:w-auto">
+              Submit loan application
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
       <Card className="border-primary/20 shadow-sm">
         <CardHeader className="border-b bg-muted/30">
           {backButton}
-          <CardTitle>Loan Application Form</CardTitle>
+          <CardTitle>Reliever Request Form</CardTitle>
           <CardDescription>
-            Salary or emergency loan request subject to HR and management approval.
+            Request a covering / relief officer. Routed to Unit Head → Department
+            Head.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Loan type *</Label>
-              <select
-                className={selectClass}
-                value={loanType}
-                onChange={(e) => setLoanType(e.target.value)}
-              >
-                <option>Salary Loan</option>
-                <option>Emergency Loan</option>
-                <option>Multi-Purpose Loan</option>
-              </select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Amount requested (PHP) *</Label>
-              <Input
-                type="number"
-                min={0}
-                value={loanAmount}
-                onChange={(e) => setLoanAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
+          <div className="grid sm:grid-cols-2 gap-4 p-3 rounded-md bg-muted/40 text-sm">
+            <p>
+              <span className="text-gray-500">Employee:</span> {employeeLabel}
+            </p>
+            <p>
+              <span className="text-gray-500">Department:</span> {employeeDept}
+            </p>
           </div>
           <div className="grid gap-2">
-            <Label>Purpose of loan *</Label>
-            <Textarea
-              value={loanPurpose}
-              onChange={(e) => setLoanPurpose(e.target.value)}
-              rows={2}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Preferred payment term</Label>
+            <Label>Proposed reliever *</Label>
             <Input
-              value={loanTerm}
-              onChange={(e) => setLoanTerm(e.target.value)}
-              placeholder="e.g. 6 months payroll deduction"
+              value={relieverName}
+              onChange={(e) => setRelieverName(e.target.value)}
+              placeholder="Name of covering staff"
             />
           </div>
           <div className="grid gap-2">
-            <Label>Remarks</Label>
-            <Textarea
-              value={loanRemarks}
-              onChange={(e) => setLoanRemarks(e.target.value)}
-              rows={2}
+            <Label>Coverage dates</Label>
+            <Input
+              value={relieverDates}
+              onChange={(e) => setRelieverDates(e.target.value)}
+              placeholder="e.g. Mar 10–14, 2026"
             />
           </div>
-          <Button onClick={submitLoan} className="w-full sm:w-auto">
-            Submit loan application
+          <div className="grid gap-2">
+            <Label>Reason *</Label>
+            <Textarea
+              value={relieverReason}
+              onChange={(e) => setRelieverReason(e.target.value)}
+              rows={3}
+              placeholder="Why a reliever is needed…"
+            />
+          </div>
+          <Button onClick={submitReliever} className="w-full sm:w-auto">
+            Submit reliever request
           </Button>
         </CardContent>
       </Card>
     );
   };
-
   return (
     <div className="space-y-8">
       <div>
@@ -720,7 +844,7 @@ export default function SelfService() {
       </div>
 
       {activeRequest === null ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {requestOptions.map((opt) => {
             const Icon = opt.icon;
             return (
@@ -750,6 +874,10 @@ export default function SelfService() {
         <Card>
           <CardHeader>
             <CardTitle>My Leave History</CardTitle>
+            <CardDescription>
+              Same leave records shown to HR — status updates when Unit Head or
+              Department Head act.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isLeavesLoading ? (
@@ -757,23 +885,55 @@ export default function SelfService() {
             ) : leaveRows.length === 0 ? (
               <div className="py-4 text-center text-sm text-gray-500">No leave requests found.</div>
             ) : (
-              <div className="space-y-4">
-                {leaveRows.slice(0, 5).map((leave) => (
-                  <div
-                    key={leave.id}
-                    className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <div className="font-medium text-sm">{leave.leaveType} Leave</div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(leave.startDate).toLocaleDateString()} –{" "}
-                        {new Date(leave.endDate).toLocaleDateString()} ({leave.days} day
-                        {leave.days === 1 ? "" : "s"})
+              <div className="space-y-5">
+                {leaveRows.slice(0, 8).map((leave) => {
+                  const approvedOn = finalApprovalDate(leave.status, leave.steps);
+                  return (
+                    <div
+                      key={leave.id}
+                      className="border-b pb-4 last:border-0 last:pb-0 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-sm">
+                            Leave — {leave.leaveType}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            Submitted{" "}
+                            {new Date(leave.createdAt).toLocaleDateString()}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(leave.startDate).toLocaleDateString()} –{" "}
+                            {new Date(leave.endDate).toLocaleDateString()} (
+                            {leave.days} day{leave.days === 1 ? "" : "s"})
+                          </div>
+                        </div>
+                        <StatusBadge status={leave.status} />
                       </div>
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                        <dt>Approval stage</dt>
+                        <dd className="font-medium text-gray-900">
+                          {leave.status === "approved"
+                            ? "Completed"
+                            : leave.status === "rejected"
+                              ? leave.currentStep
+                              : leave.currentStep}
+                        </dd>
+                        <dt>Approval date</dt>
+                        <dd className="font-medium text-gray-900">
+                          {formatApprovalDate(approvedOn)}
+                        </dd>
+                      </dl>
+                      <ApprovalStageControls
+                        steps={leave.steps}
+                        currentStep={leave.currentStep}
+                        overallStatus={leave.status}
+                        actorName=""
+                        readOnly
+                      />
                     </div>
-                    <StatusBadge status={leave.status} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -782,6 +942,10 @@ export default function SelfService() {
         <Card>
           <CardHeader>
             <CardTitle>Other Requests</CardTitle>
+            <CardDescription>
+              Overtime, loan, certificate, reliever — shared with the HR approval
+              queue.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isRequestsLoading ? (
@@ -789,19 +953,47 @@ export default function SelfService() {
             ) : requestRows.length === 0 ? (
               <div className="py-4 text-center text-sm text-gray-500">No recent requests found.</div>
             ) : (
-              <div className="space-y-4">
-                {requestRows.slice(0, 5).map((req) => (
-                  <div
-                    key={req.id}
-                    className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <div className="font-medium text-sm">{req.title}</div>
-                      <div className="text-xs text-gray-500 uppercase">{req.type}</div>
+              <div className="space-y-5">
+                {requestRows.slice(0, 8).map((req) => {
+                  const approvedOn = finalApprovalDate(req.status, req.steps);
+                  return (
+                    <div
+                      key={req.id}
+                      className="border-b pb-4 last:border-0 last:pb-0 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-sm">{req.title}</div>
+                          <div className="text-xs text-gray-500 mt-0.5 uppercase tracking-wide">
+                            {req.type}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Submitted{" "}
+                            {new Date(req.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <StatusBadge status={req.status} />
+                      </div>
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                        <dt>Approval stage</dt>
+                        <dd className="font-medium text-gray-900">
+                          {req.status === "approved" ? "Completed" : req.currentStep}
+                        </dd>
+                        <dt>Approval date</dt>
+                        <dd className="font-medium text-gray-900">
+                          {formatApprovalDate(approvedOn)}
+                        </dd>
+                      </dl>
+                      <ApprovalStageControls
+                        steps={req.steps}
+                        currentStep={req.currentStep}
+                        overallStatus={req.status}
+                        actorName=""
+                        readOnly
+                      />
                     </div>
-                    <StatusBadge status={req.status} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

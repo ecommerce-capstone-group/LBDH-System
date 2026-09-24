@@ -29,7 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ApprovalStepper } from "@/components/approval-stepper";
-import { ApprovalActions } from "@/components/approval-actions";
+import { ApprovalStageControls } from "@/components/approval-stage-controls";
 import { asArray } from "@/lib/api-guards";
 import {
   formatTrainingDate,
@@ -271,23 +271,32 @@ export default function Training() {
             </span>
           </div>
           {plan.category === "departmental_request" && plan.steps?.length > 0 ? (
-            <div onClick={(e) => e.stopPropagation()}>
-              <ApprovalStepper steps={plan.steps} currentStep={plan.currentStep} />
-              {plan.status === "pending" ? (
-                <ApprovalActions
-                  actor={user?.name ?? "HR"}
-                  onAdvance={async (decision, note) => {
-                    await advancePlan.mutateAsync({
-                      id: plan.id,
-                      data: { decision, actor: user?.name ?? "HR", note },
-                    });
-                    await invalidate();
-                    toast.success(
-                      decision === "approve" ? "Step approved." : "Request rejected.",
-                    );
-                  }}
-                />
-              ) : null}
+            <div onClick={(e) => e.stopPropagation()} className="space-y-3">
+              <ApprovalStageControls
+                steps={plan.steps}
+                currentStep={plan.currentStep}
+                overallStatus={plan.status}
+                actorName={user?.name ?? "Approver"}
+                actorRole={user?.role}
+                onAdvance={async (decision, note) => {
+                  await advancePlan.mutateAsync({
+                    id: plan.id,
+                    data: { decision, actor: user?.name ?? "Approver", note },
+                  });
+                  await invalidate();
+                  toast.success(
+                    decision === "approve" ? "Step approved." : "Request rejected.",
+                  );
+                }}
+              />
+              <details className="text-sm">
+                <summary className="cursor-pointer text-gray-600">
+                  Full workflow detail
+                </summary>
+                <div className="mt-2">
+                  <ApprovalStepper steps={plan.steps} currentStep={plan.currentStep} />
+                </div>
+              </details>
             </div>
           ) : null}
           <Button
