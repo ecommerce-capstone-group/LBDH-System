@@ -8,12 +8,12 @@ services:
     runtime: node
     plan: free
     region: oregon
-    # Avoid `corepack enable` — Render's filesystem is read-only at /usr/bin.
+    # Do not use `corepack enable` or `npm install -g` — /usr is read-only on Render.
+    # Run pnpm via npx so it installs into the writable npm cache.
     # NODE_ENV=production (below) skips devDependencies; esbuild is required to build.
     buildCommand: >-
-      npm install -g pnpm@9.15.0 &&
-      NODE_ENV=development pnpm install --frozen-lockfile --filter @workspace/api-server... &&
-      NODE_ENV=development pnpm --filter @workspace/api-server run build &&
+      NODE_ENV=development npx --yes pnpm@9.15.0 install --frozen-lockfile --filter @workspace/api-server... &&
+      NODE_ENV=development npx --yes pnpm@9.15.0 --filter @workspace/api-server run build &&
       node lib/db/scripts/migrate-appraisals.mjs &&
       node lib/db/scripts/migrate-training-appraisals.mjs &&
       node lib/db/scripts/migrate-employee-incidents.mjs &&
