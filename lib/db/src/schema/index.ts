@@ -309,3 +309,59 @@ export const offboardings = pgTable("offboardings", {
     .notNull()
     .defaultNow(),
 });
+
+export type PreEmploymentRequirement = {
+  label: string;
+  done: boolean;
+  notes?: string | null;
+};
+
+export const DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS: PreEmploymentRequirement[] = [
+  { label: "Pre-employment medical / PE", done: false },
+  { label: "NBI / police clearance", done: false },
+  { label: "PSA birth certificate", done: false },
+  { label: "Diploma / Transcript of Records", done: false },
+  { label: "PRC license (if applicable)", done: false },
+  { label: "SSS / PhilHealth / Pag-IBIG numbers", done: false },
+  { label: "2x2 ID photos", done: false },
+  { label: "Signed employment contract", done: false },
+];
+
+/** Linked to the original applicant + job; optional employeeId after hire. */
+export const onboardings = pgTable("onboardings", {
+  id: serial("id").primaryKey(),
+  applicantId: integer("applicant_id")
+    .notNull()
+    .references(() => applicants.id, { onDelete: "cascade" }),
+  jobId: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  employeeId: integer("employee_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  /** Applicant snapshot at time of selection (keeps history if applicant row changes). */
+  applicantName: text("applicant_name").notNull(),
+  applicantEmail: text("applicant_email").notNull().default(""),
+  applicantPhone: text("applicant_phone").notNull().default(""),
+  jobTitle: text("job_title").notNull(),
+  jobDepartment: text("job_department").notNull(),
+  interviewScheduledAt: timestamp("interview_scheduled_at", {
+    withTimezone: true,
+  }),
+  interviewNotes: text("interview_notes").notNull().default(""),
+  /** pending | scheduled | completed | passed | failed | cancelled */
+  interviewStatus: text("interview_status").notNull().default("pending"),
+  interviewResult: text("interview_result").notNull().default(""),
+  preEmploymentRequirements: jsonb("pre_employment_requirements")
+    .$type<PreEmploymentRequirement[]>()
+    .notNull(),
+  /** in_progress | approved | hired | cancelled */
+  status: text("status").notNull().default("in_progress"),
+  hrNotes: text("hr_notes").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

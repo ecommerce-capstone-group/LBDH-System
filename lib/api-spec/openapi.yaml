@@ -20,6 +20,7 @@ tags:
   - name: grievances
   - name: incidents
   - name: offboarding
+  - name: onboarding
   - name: training
 
 paths:
@@ -814,6 +815,97 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Offboarding" }
 
+
+  /onboardings:
+    get:
+      operationId: listOnboardings
+      tags: [onboarding]
+      parameters:
+        - in: query
+          name: jobId
+          schema: { type: integer }
+        - in: query
+          name: applicantId
+          schema: { type: integer }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Onboarding" }
+    post:
+      operationId: createOnboarding
+      tags: [onboarding]
+      summary: Start onboarding from a selected applicant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OnboardingInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Onboarding" }
+
+  /onboardings/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      operationId: getOnboarding
+      tags: [onboarding]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Onboarding" }
+    patch:
+      operationId: updateOnboarding
+      tags: [onboarding]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OnboardingUpdate" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Onboarding" }
+
+  /onboardings/{id}/create-employee:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    post:
+      operationId: createEmployeeFromOnboarding
+      tags: [onboarding]
+      summary: Create employee profile from approved onboarding / applicant data
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OnboardingCreateEmployeeInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingCreateEmployeeResult" }
+
 components:
   schemas:
     HealthStatus:
@@ -1553,3 +1645,79 @@ components:
         itCleared: { type: boolean, nullable: true }
         financeCleared: { type: boolean, nullable: true }
         status: { type: string, nullable: true }
+
+    PreEmploymentRequirement:
+      type: object
+      required: [label, done]
+      properties:
+        label: { type: string }
+        done: { type: boolean }
+        notes: { type: string, nullable: true }
+
+    Onboarding:
+      type: object
+      required: [id, applicantId, jobId, applicantName, applicantEmail, applicantPhone, jobTitle, jobDepartment, interviewNotes, interviewStatus, interviewResult, preEmploymentRequirements, status, hrNotes, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        applicantId: { type: integer }
+        jobId: { type: integer }
+        employeeId: { type: integer, nullable: true }
+        applicantName: { type: string }
+        applicantEmail: { type: string }
+        applicantPhone: { type: string }
+        jobTitle: { type: string }
+        jobDepartment: { type: string }
+        interviewScheduledAt: { type: string, nullable: true }
+        interviewNotes: { type: string }
+        interviewStatus: { type: string, description: "pending | scheduled | completed | passed | failed | cancelled" }
+        interviewResult: { type: string }
+        preEmploymentRequirements:
+          type: array
+          items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
+        status: { type: string, description: "in_progress | approved | hired | cancelled" }
+        hrNotes: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    OnboardingInput:
+      type: object
+      required: [applicantId]
+      properties:
+        applicantId: { type: integer }
+        interviewScheduledAt: { type: string, nullable: true }
+        interviewNotes: { type: string, nullable: true }
+        hrNotes: { type: string, nullable: true }
+
+    OnboardingUpdate:
+      type: object
+      properties:
+        interviewScheduledAt: { type: string, nullable: true }
+        interviewNotes: { type: string, nullable: true }
+        interviewStatus: { type: string, nullable: true }
+        interviewResult: { type: string, nullable: true }
+        preEmploymentRequirements:
+          type: array
+          nullable: true
+          items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
+        status: { type: string, nullable: true }
+        hrNotes: { type: string, nullable: true }
+
+    OnboardingCreateEmployeeInput:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        role: { type: string, nullable: true }
+        department: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        licenseName: { type: string, nullable: true }
+        licenseExpiry: { type: string, nullable: true }
+        documents: { type: string, nullable: true }
+
+    OnboardingCreateEmployeeResult:
+      type: object
+      required: [onboarding, employee]
+      properties:
+        onboarding: { $ref: "#/components/schemas/Onboarding" }
+        employee: { $ref: "#/components/schemas/Employee" }
+

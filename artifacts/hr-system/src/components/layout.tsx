@@ -10,6 +10,7 @@ import {
   FileText,
   TrendingUp,
   UserMinus,
+  UserPlus,
   PieChart,
   LogOut,
   Menu,
@@ -39,6 +40,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/performance", label: "Performance", icon: TrendingUp },
     { href: "/training", label: "Training", icon: GraduationCap },
     { href: "/incidents", label: "Incidents", icon: ShieldAlert },
+    { href: "/onboarding", label: "Onboarding", icon: UserPlus },
     { href: "/offboarding", label: "Offboarding", icon: UserMinus },
     { href: "/reports", label: "Reports", icon: PieChart },
   ];

@@ -7,6 +7,6 @@
  */
 
 export type ListTrainingEnrollmentsParams = {
-  employeeId?: number;
-  planId?: number;
+employeeId?: number;
+planId?: number;
 };

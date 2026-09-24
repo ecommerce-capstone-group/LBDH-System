@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type AppraisalTemplateType =
-  (typeof AppraisalTemplateType)[keyof typeof AppraisalTemplateType];
+export type AppraisalTemplateType = typeof AppraisalTemplateType[keyof typeof AppraisalTemplateType];
+
 
 export const AppraisalTemplateType = {
-  non_supervisory: "non_supervisory",
-  supervisory: "supervisory",
+  non_supervisory: 'non_supervisory',
+  supervisory: 'supervisory',
 } as const;

@@ -1170,3 +1170,151 @@ export const UpdateOffboardingResponse = zod.object({
   replacementJobId: zod.number().nullable(),
   createdAt: zod.string(),
 });
+
+export const ListOnboardingsQueryParams = zod.object({
+  jobId: zod.coerce.number().optional(),
+  applicantId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+});
+
+export const ListOnboardingsResponseItem = zod.object({
+  id: zod.number(),
+  applicantId: zod.number(),
+  jobId: zod.number(),
+  employeeId: zod.number().nullish(),
+  applicantName: zod.string(),
+  applicantEmail: zod.string(),
+  applicantPhone: zod.string(),
+  jobTitle: zod.string(),
+  jobDepartment: zod.string(),
+  interviewScheduledAt: zod.string().nullish(),
+  interviewNotes: zod.string(),
+  interviewStatus: zod
+    .string()
+    .describe("pending | scheduled | completed | passed | failed | cancelled"),
+  interviewResult: zod.string(),
+  preEmploymentRequirements: zod.array(
+    zod.object({
+      label: zod.string(),
+      done: zod.boolean(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  status: zod.string().describe("in_progress | approved | hired | cancelled"),
+  hrNotes: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListOnboardingsResponse = zod.array(ListOnboardingsResponseItem);
+
+/**
+ * @summary Start onboarding from a selected applicant
+ */
+export const CreateOnboardingBody = zod.object({
+  applicantId: zod.number(),
+  interviewScheduledAt: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
+  hrNotes: zod.string().nullish(),
+});
+
+export const GetOnboardingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetOnboardingResponse = zod.object({
+  id: zod.number(),
+  applicantId: zod.number(),
+  jobId: zod.number(),
+  employeeId: zod.number().nullish(),
+  applicantName: zod.string(),
+  applicantEmail: zod.string(),
+  applicantPhone: zod.string(),
+  jobTitle: zod.string(),
+  jobDepartment: zod.string(),
+  interviewScheduledAt: zod.string().nullish(),
+  interviewNotes: zod.string(),
+  interviewStatus: zod
+    .string()
+    .describe("pending | scheduled | completed | passed | failed | cancelled"),
+  interviewResult: zod.string(),
+  preEmploymentRequirements: zod.array(
+    zod.object({
+      label: zod.string(),
+      done: zod.boolean(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  status: zod.string().describe("in_progress | approved | hired | cancelled"),
+  hrNotes: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+export const UpdateOnboardingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateOnboardingBody = zod.object({
+  interviewScheduledAt: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
+  interviewStatus: zod.string().nullish(),
+  interviewResult: zod.string().nullish(),
+  preEmploymentRequirements: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        done: zod.boolean(),
+        notes: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  status: zod.string().nullish(),
+  hrNotes: zod.string().nullish(),
+});
+
+export const UpdateOnboardingResponse = zod.object({
+  id: zod.number(),
+  applicantId: zod.number(),
+  jobId: zod.number(),
+  employeeId: zod.number().nullish(),
+  applicantName: zod.string(),
+  applicantEmail: zod.string(),
+  applicantPhone: zod.string(),
+  jobTitle: zod.string(),
+  jobDepartment: zod.string(),
+  interviewScheduledAt: zod.string().nullish(),
+  interviewNotes: zod.string(),
+  interviewStatus: zod
+    .string()
+    .describe("pending | scheduled | completed | passed | failed | cancelled"),
+  interviewResult: zod.string(),
+  preEmploymentRequirements: zod.array(
+    zod.object({
+      label: zod.string(),
+      done: zod.boolean(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  status: zod.string().describe("in_progress | approved | hired | cancelled"),
+  hrNotes: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Create employee profile from approved onboarding / applicant data
+ */
+export const CreateEmployeeFromOnboardingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateEmployeeFromOnboardingBody = zod.object({
+  name: zod.string().nullish(),
+  role: zod.string().nullish(),
+  department: zod.string().nullish(),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  licenseName: zod.string().nullish(),
+  licenseExpiry: zod.string().nullish(),
+  documents: zod.string().nullish(),
+});

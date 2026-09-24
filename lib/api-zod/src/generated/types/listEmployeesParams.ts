@@ -7,6 +7,6 @@
  */
 
 export type ListEmployeesParams = {
-  search?: string;
-  department?: string;
+search?: string;
+department?: string;
 };

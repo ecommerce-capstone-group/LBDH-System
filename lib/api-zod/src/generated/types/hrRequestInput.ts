@@ -5,7 +5,7 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { RequestType } from "./requestType";
+import type { RequestType } from './requestType';
 
 export interface HrRequestInput {
   employeeId: number;

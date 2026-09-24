@@ -572,6 +572,68 @@ export interface OffboardingUpdate {
   status?: string | null;
 }
 
+export interface PreEmploymentRequirement {
+  label: string;
+  done: boolean;
+  notes?: string | null;
+}
+
+export interface Onboarding {
+  id: number;
+  applicantId: number;
+  jobId: number;
+  employeeId?: number | null;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone: string;
+  jobTitle: string;
+  jobDepartment: string;
+  interviewScheduledAt?: string | null;
+  interviewNotes: string;
+  /** pending | scheduled | completed | passed | failed | cancelled */
+  interviewStatus: string;
+  interviewResult: string;
+  preEmploymentRequirements: PreEmploymentRequirement[];
+  /** in_progress | approved | hired | cancelled */
+  status: string;
+  hrNotes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OnboardingInput {
+  applicantId: number;
+  interviewScheduledAt?: string | null;
+  interviewNotes?: string | null;
+  hrNotes?: string | null;
+}
+
+export interface OnboardingUpdate {
+  interviewScheduledAt?: string | null;
+  interviewNotes?: string | null;
+  interviewStatus?: string | null;
+  interviewResult?: string | null;
+  preEmploymentRequirements?: PreEmploymentRequirement[] | null;
+  status?: string | null;
+  hrNotes?: string | null;
+}
+
+export interface OnboardingCreateEmployeeInput {
+  name?: string | null;
+  role?: string | null;
+  department?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  licenseName?: string | null;
+  licenseExpiry?: string | null;
+  documents?: string | null;
+}
+
+export interface OnboardingCreateEmployeeResult {
+  onboarding: Onboarding;
+  employee: Employee;
+}
+
 export type ListEmployeesParams = {
   search?: string;
   department?: string;
@@ -640,4 +702,10 @@ export type GetIncidentAnalyticsParams = {
 
 export type ListGrievancesParams = {
   employeeId?: number;
+};
+
+export type ListOnboardingsParams = {
+  jobId?: number;
+  applicantId?: number;
+  status?: string;
 };

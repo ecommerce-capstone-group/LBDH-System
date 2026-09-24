@@ -56,6 +56,7 @@ import type {
   ListIncidentsParams,
   ListJobsParams,
   ListLeavesParams,
+  ListOnboardingsParams,
   ListRequestsParams,
   ListTrainingEnrollmentsParams,
   ListTrainingPlansParams,
@@ -63,6 +64,11 @@ import type {
   Offboarding,
   OffboardingInput,
   OffboardingUpdate,
+  Onboarding,
+  OnboardingCreateEmployeeInput,
+  OnboardingCreateEmployeeResult,
+  OnboardingInput,
+  OnboardingUpdate,
   TrainingEnrollment,
   TrainingEnrollmentInput,
   TrainingPlan,
@@ -4111,4 +4117,429 @@ export const useUpdateOffboarding = <
   TContext
 > => {
   return useMutation(getUpdateOffboardingMutationOptions(options));
+};
+
+export const getListOnboardingsUrl = (params?: ListOnboardingsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/onboardings?${stringifiedParams}`
+    : `/api/onboardings`;
+};
+
+export const listOnboardings = async (
+  params?: ListOnboardingsParams,
+  options?: RequestInit,
+): Promise<Onboarding[]> => {
+  return customFetch<Onboarding[]>(getListOnboardingsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOnboardingsQueryKey = (params?: ListOnboardingsParams) => {
+  return [`/api/onboardings`, ...(params ? [params] : [])] as const;
+};
+
+export const getListOnboardingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOnboardings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOnboardingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOnboardings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListOnboardingsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listOnboardings>>> = ({
+    signal,
+  }) => listOnboardings(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOnboardings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOnboardingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOnboardings>>
+>;
+export type ListOnboardingsQueryError = ErrorType<unknown>;
+
+export function useListOnboardings<
+  TData = Awaited<ReturnType<typeof listOnboardings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListOnboardingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOnboardings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOnboardingsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Start onboarding from a selected applicant
+ */
+export const getCreateOnboardingUrl = () => {
+  return `/api/onboardings`;
+};
+
+export const createOnboarding = async (
+  onboardingInput: OnboardingInput,
+  options?: RequestInit,
+): Promise<Onboarding> => {
+  return customFetch<Onboarding>(getCreateOnboardingUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(onboardingInput),
+  });
+};
+
+export const getCreateOnboardingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOnboarding>>,
+    TError,
+    { data: BodyType<OnboardingInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOnboarding>>,
+  TError,
+  { data: BodyType<OnboardingInput> },
+  TContext
+> => {
+  const mutationKey = ["createOnboarding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOnboarding>>,
+    { data: BodyType<OnboardingInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOnboarding(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOnboardingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOnboarding>>
+>;
+export type CreateOnboardingMutationBody = BodyType<OnboardingInput>;
+export type CreateOnboardingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Start onboarding from a selected applicant
+ */
+export const useCreateOnboarding = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOnboarding>>,
+    TError,
+    { data: BodyType<OnboardingInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOnboarding>>,
+  TError,
+  { data: BodyType<OnboardingInput> },
+  TContext
+> => {
+  return useMutation(getCreateOnboardingMutationOptions(options));
+};
+
+export const getGetOnboardingUrl = (id: number) => {
+  return `/api/onboardings/${id}`;
+};
+
+export const getOnboarding = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Onboarding> => {
+  return customFetch<Onboarding>(getGetOnboardingUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOnboardingQueryKey = (id: number) => {
+  return [`/api/onboardings/${id}`] as const;
+};
+
+export const getGetOnboardingQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOnboarding>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOnboarding>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOnboardingQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getOnboarding>>> = ({
+    signal,
+  }) => getOnboarding(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOnboarding>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOnboardingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOnboarding>>
+>;
+export type GetOnboardingQueryError = ErrorType<unknown>;
+
+export function useGetOnboarding<
+  TData = Awaited<ReturnType<typeof getOnboarding>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOnboarding>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOnboardingQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getUpdateOnboardingUrl = (id: number) => {
+  return `/api/onboardings/${id}`;
+};
+
+export const updateOnboarding = async (
+  id: number,
+  onboardingUpdate: OnboardingUpdate,
+  options?: RequestInit,
+): Promise<Onboarding> => {
+  return customFetch<Onboarding>(getUpdateOnboardingUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(onboardingUpdate),
+  });
+};
+
+export const getUpdateOnboardingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOnboarding>>,
+    TError,
+    { id: number; data: BodyType<OnboardingUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateOnboarding>>,
+  TError,
+  { id: number; data: BodyType<OnboardingUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateOnboarding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateOnboarding>>,
+    { id: number; data: BodyType<OnboardingUpdate> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateOnboarding(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateOnboardingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateOnboarding>>
+>;
+export type UpdateOnboardingMutationBody = BodyType<OnboardingUpdate>;
+export type UpdateOnboardingMutationError = ErrorType<unknown>;
+
+export const useUpdateOnboarding = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOnboarding>>,
+    TError,
+    { id: number; data: BodyType<OnboardingUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateOnboarding>>,
+  TError,
+  { id: number; data: BodyType<OnboardingUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateOnboardingMutationOptions(options));
+};
+
+/**
+ * @summary Create employee profile from approved onboarding / applicant data
+ */
+export const getCreateEmployeeFromOnboardingUrl = (id: number) => {
+  return `/api/onboardings/${id}/create-employee`;
+};
+
+export const createEmployeeFromOnboarding = async (
+  id: number,
+  onboardingCreateEmployeeInput?: OnboardingCreateEmployeeInput,
+  options?: RequestInit,
+): Promise<OnboardingCreateEmployeeResult> => {
+  return customFetch<OnboardingCreateEmployeeResult>(
+    getCreateEmployeeFromOnboardingUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(onboardingCreateEmployeeInput),
+    },
+  );
+};
+
+export const getCreateEmployeeFromOnboardingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmployeeFromOnboarding>>,
+    TError,
+    { id: number; data: BodyType<OnboardingCreateEmployeeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEmployeeFromOnboarding>>,
+  TError,
+  { id: number; data: BodyType<OnboardingCreateEmployeeInput> },
+  TContext
+> => {
+  const mutationKey = ["createEmployeeFromOnboarding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEmployeeFromOnboarding>>,
+    { id: number; data: BodyType<OnboardingCreateEmployeeInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createEmployeeFromOnboarding(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEmployeeFromOnboardingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEmployeeFromOnboarding>>
+>;
+export type CreateEmployeeFromOnboardingMutationBody =
+  BodyType<OnboardingCreateEmployeeInput>;
+export type CreateEmployeeFromOnboardingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create employee profile from approved onboarding / applicant data
+ */
+export const useCreateEmployeeFromOnboarding = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmployeeFromOnboarding>>,
+    TError,
+    { id: number; data: BodyType<OnboardingCreateEmployeeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEmployeeFromOnboarding>>,
+  TError,
+  { id: number; data: BodyType<OnboardingCreateEmployeeInput> },
+  TContext
+> => {
+  return useMutation(getCreateEmployeeFromOnboardingMutationOptions(options));
 };

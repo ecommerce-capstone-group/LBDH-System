@@ -5,7 +5,7 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { TrainingEnrollment } from "./trainingEnrollment";
+import type { TrainingEnrollment } from './trainingEnrollment';
 
 export interface AssignTrainingPlanResult {
   enrolled: TrainingEnrollment[];

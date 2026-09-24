@@ -25,6 +25,7 @@ import Performance from "@/pages/performance";
 import Training from "@/pages/training";
 import Incidents from "@/pages/incidents";
 import Offboarding from "@/pages/offboarding";
+import Onboarding from "@/pages/onboarding";
 import SelfService from "@/pages/self-service";
 
 const queryClient = new QueryClient({
@@ -88,6 +89,7 @@ function App() {
             <Route path="/performance">{() => <ProtectedRoute component={Performance} roles={["hr"]} />}</Route>
             <Route path="/training">{() => <ProtectedRoute component={Training} roles={["hr"]} />}</Route>
             <Route path="/incidents">{() => <ProtectedRoute component={Incidents} roles={["hr"]} />}</Route>
+            <Route path="/onboarding">{() => <ProtectedRoute component={Onboarding} roles={["hr"]} />}</Route>
             <Route path="/offboarding">{() => <ProtectedRoute component={Offboarding} roles={["hr"]} />}</Route>
             <Route path="/reports">{() => <ProtectedRoute component={Reports} roles={["hr"]} />}</Route>
             <Route path="/self-service">{() => <ProtectedRoute component={SelfService} roles={["employee"]} />}</Route>

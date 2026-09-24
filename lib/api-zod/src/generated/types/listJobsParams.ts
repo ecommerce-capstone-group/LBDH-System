@@ -7,8 +7,8 @@
  */
 
 export type ListJobsParams = {
-  /**
-   * active | closed
-   */
-  status?: string;
+/**
+ * active | closed
+ */
+status?: string;
 };

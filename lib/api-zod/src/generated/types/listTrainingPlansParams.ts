@@ -5,10 +5,10 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { TrainingCategory } from "./trainingCategory";
+import type { TrainingCategory } from './trainingCategory';
 
 export type ListTrainingPlansParams = {
-  year?: number;
-  category?: TrainingCategory;
-  employeeId?: number;
+year?: number;
+category?: TrainingCategory;
+employeeId?: number;
 };

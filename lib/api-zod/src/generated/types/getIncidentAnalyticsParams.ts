@@ -7,5 +7,5 @@
  */
 
 export type GetIncidentAnalyticsParams = {
-  employeeId?: number;
+employeeId?: number;
 };

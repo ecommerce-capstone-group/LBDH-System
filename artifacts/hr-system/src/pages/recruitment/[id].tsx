@@ -5,13 +5,16 @@ import {
   useListApplicants,
   getListApplicantsQueryKey,
   useScoreApplicantAi,
+  useCreateOnboarding,
+  useListOnboardings,
+  getListOnboardingsQueryKey,
 } from "@workspace/api-client-react";
-import type { Applicant, Job, Requirement, RequirementMatch } from "@workspace/api-client-react";
+import type { Applicant, Job, Requirement, RequirementMatch, Onboarding } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FitScoreBar } from "@/components/fit-score-bar";
-import { Check, X, Mail, Phone, RefreshCw } from "lucide-react";
+import { Check, X, Mail, Phone, RefreshCw, UserCheck } from "lucide-react";
 import { asArray, isRecord } from "@/lib/api-guards";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -45,6 +48,19 @@ export default function JobDetail() {
 
   const applicantRows = asArray<Applicant>(applicants);
   const scoreApplicantAi = useScoreApplicantAi();
+  const createOnboarding = useCreateOnboarding();
+  const { data: jobOnboardings } = useListOnboardings(
+    { jobId: id },
+    {
+      query: {
+        enabled: !!id,
+        queryKey: getListOnboardingsQueryKey({ jobId: id }),
+      },
+    },
+  );
+  const onboardingByApplicantId = new Map(
+    asArray<Onboarding>(jobOnboardings).map((o) => [o.applicantId, o] as const),
+  );
 
   if (isLoadingJob) return <div className="p-6">Loading job details...</div>;
   if (!job || !isRecord(job) || typeof job.title !== "string") {
@@ -170,6 +186,46 @@ export default function JobDetail() {
                     </div>
                     <div className="pt-2 rounded-lg border bg-white p-3">
                       <FitScoreBar score={applicant.totalScore} size="lg" />
+                    </div>
+                    <div className="rounded-lg border bg-white p-3 space-y-2">
+                      <div className="text-sm font-semibold text-gray-700">Selection</div>
+                      {onboardingByApplicantId.get(applicant.id) ? (
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-600">
+                            Onboarding:{" "}
+                            <span className="font-medium">
+                              {onboardingByApplicantId.get(applicant.id)!.status}
+                            </span>
+                          </p>
+                          <Button type="button" size="sm" variant="outline" asChild>
+                            <Link href="/onboarding">Open onboarding</Link>
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={createOnboarding.isPending}
+                          onClick={async () => {
+                            try {
+                              await createOnboarding.mutateAsync({
+                                data: { applicantId: applicant.id },
+                              });
+                              await queryClient.invalidateQueries({
+                                queryKey: getListOnboardingsQueryKey({ jobId: id }),
+                              });
+                              toast.success("Applicant moved to onboarding");
+                            } catch (e: unknown) {
+                              const msg =
+                                e instanceof Error ? e.message : "Could not start onboarding.";
+                              toast.error(msg);
+                            }
+                          }}
+                        >
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          {createOnboarding.isPending ? "Starting…" : "Start onboarding"}
+                        </Button>
+                      )}
                     </div>
                     <div className="rounded-lg border bg-white p-3 space-y-3">
                       <div className="flex items-center justify-between gap-3">
