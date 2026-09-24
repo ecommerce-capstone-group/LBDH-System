@@ -5,8 +5,8 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { ApprovalStep } from './approvalStep';
-import type { RequestType } from './requestType';
+import type { ApprovalStep } from "./approvalStep";
+import type { RequestType } from "./requestType";
 
 export interface HrRequest {
   id: number;

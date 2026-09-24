@@ -7,5 +7,5 @@
  */
 
 export type ListExpiringLicensesParams = {
-days?: number;
+  days?: number;
 };

@@ -33,6 +33,7 @@ router.post("/offboardings", async (req, res) => {
         department: emp.department,
         description: `Replacement role for ${emp.name} (${emp.role}, ${emp.department}).`,
         requirements: [],
+        staffNeeded: 1,
         status: "active",
       })
       .returning();

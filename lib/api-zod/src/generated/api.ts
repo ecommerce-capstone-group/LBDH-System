@@ -145,6 +145,8 @@ export const ListJobsQueryParams = zod.object({
   status: zod.coerce.string().optional(),
 });
 
+export const listJobsResponseHiredCountMin = 0;
+
 export const ListJobsResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
@@ -158,7 +160,15 @@ export const ListJobsResponseItem = zod.object({
       max: zod.number().nullish().describe("for number kind"),
     }),
   ),
-  status: zod.string().describe("active | closed"),
+  staffNeeded: zod
+    .number()
+    .min(1)
+    .describe("Number of staff needed for this listing"),
+  hiredCount: zod
+    .number()
+    .min(listJobsResponseHiredCountMin)
+    .describe("Count of onboardings for this job with status hired (computed)"),
+  status: zod.string().describe("active | closed | filled"),
   createdAt: zod.string(),
 });
 export const ListJobsResponse = zod.array(ListJobsResponseItem);
@@ -175,12 +185,19 @@ export const CreateJobBody = zod.object({
       max: zod.number().nullish().describe("for number kind"),
     }),
   ),
-  status: zod.string().nullish(),
+  staffNeeded: zod
+    .number()
+    .min(1)
+    .nullish()
+    .describe("Number of staff needed (defaults to 1)"),
+  status: zod.string().nullish().describe("active | closed | filled"),
 });
 
 export const GetJobParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const getJobResponseHiredCountMin = 0;
 
 export const GetJobResponse = zod.object({
   id: zod.number(),
@@ -195,7 +212,15 @@ export const GetJobResponse = zod.object({
       max: zod.number().nullish().describe("for number kind"),
     }),
   ),
-  status: zod.string().describe("active | closed"),
+  staffNeeded: zod
+    .number()
+    .min(1)
+    .describe("Number of staff needed for this listing"),
+  hiredCount: zod
+    .number()
+    .min(getJobResponseHiredCountMin)
+    .describe("Count of onboardings for this job with status hired (computed)"),
+  status: zod.string().describe("active | closed | filled"),
   createdAt: zod.string(),
 });
 
@@ -215,8 +240,15 @@ export const UpdateJobBody = zod.object({
       max: zod.number().nullish().describe("for number kind"),
     }),
   ),
-  status: zod.string().nullish(),
+  staffNeeded: zod
+    .number()
+    .min(1)
+    .nullish()
+    .describe("Number of staff needed (defaults to 1)"),
+  status: zod.string().nullish().describe("active | closed | filled"),
 });
+
+export const updateJobResponseHiredCountMin = 0;
 
 export const UpdateJobResponse = zod.object({
   id: zod.number(),
@@ -231,7 +263,15 @@ export const UpdateJobResponse = zod.object({
       max: zod.number().nullish().describe("for number kind"),
     }),
   ),
-  status: zod.string().describe("active | closed"),
+  staffNeeded: zod
+    .number()
+    .min(1)
+    .describe("Number of staff needed for this listing"),
+  hiredCount: zod
+    .number()
+    .min(updateJobResponseHiredCountMin)
+    .describe("Count of onboardings for this job with status hired (computed)"),
+  status: zod.string().describe("active | closed | filled"),
   createdAt: zod.string(),
 });
 

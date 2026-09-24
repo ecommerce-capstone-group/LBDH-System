@@ -5,8 +5,8 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { Employee } from "./employee";
-import type { Onboarding } from "./onboarding";
+import type { Employee } from './employee';
+import type { Onboarding } from './onboarding';
 
 export interface OnboardingCreateEmployeeResult {
   onboarding: Onboarding;

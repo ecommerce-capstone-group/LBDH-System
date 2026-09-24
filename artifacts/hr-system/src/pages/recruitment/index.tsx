@@ -5,6 +5,7 @@ import {
   useListJobs,
   getListJobsQueryKey,
   useCreateJob,
+  useUpdateJob,
   type Job,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Link } from "wouter";
-import { PlusCircle, ExternalLink } from "lucide-react";
+import { PlusCircle, ExternalLink, XCircle } from "lucide-react";
 import { asArray } from "@/lib/api-guards";
 import {
   Dialog,
@@ -36,17 +37,30 @@ export default function Recruitment() {
   const [title, setTitle] = useState("");
   const [department, setDepartment] = useState("");
   const [description, setDescription] = useState("");
+  const [staffNeeded, setStaffNeeded] = useState("1");
+  const [closingId, setClosingId] = useState<number | null>(null);
 
   const { data: jobs, isLoading } = useListJobs(undefined, {
     query: { queryKey: getListJobsQueryKey() },
   });
 
   const createJob = useCreateJob();
+  const updateJob = useUpdateJob();
   const rows = asArray<Job>(jobs);
+
+  const invalidateJobs = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+  };
 
   const handlePostJob = async () => {
     if (!title.trim() || !department.trim() || !description.trim()) {
       toast.error("Title, department, and description are required.");
+      return;
+    }
+    const needed = Math.floor(Number(staffNeeded));
+    if (!Number.isFinite(needed) || needed < 1) {
+      toast.error("Number of staff needed must be at least 1.");
       return;
     }
     try {
@@ -56,19 +70,49 @@ export default function Recruitment() {
           department: department.trim(),
           description: description.trim(),
           requirements: defaultRequirements,
+          staffNeeded: needed,
           status: "active",
         },
       });
-      await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+      await invalidateJobs();
       toast.success("Job posted.");
       setTitle("");
       setDepartment("");
       setDescription("");
+      setStaffNeeded("1");
       setPostOpen(false);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not create job.";
       toast.error(msg);
+    }
+  };
+
+  const handleCloseJob = async (job: Job) => {
+    if (job.status !== "active") return;
+    const ok = window.confirm(
+      `Close "${job.title}"? It will be removed from the careers page. Existing applicants are kept.`,
+    );
+    if (!ok) return;
+    setClosingId(job.id);
+    try {
+      await updateJob.mutateAsync({
+        id: job.id,
+        data: {
+          title: job.title,
+          department: job.department,
+          description: job.description,
+          requirements: job.requirements,
+          staffNeeded: job.staffNeeded ?? 1,
+          status: "closed",
+        },
+      });
+      await invalidateJobs();
+      toast.success("Job listing closed. New applications are blocked.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Could not close job.";
+      toast.error(msg);
+    } finally {
+      setClosingId(null);
     }
   };
 
@@ -109,6 +153,22 @@ export default function Recruitment() {
               <Input id="job-dept" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="ICU" />
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="job-staff-needed">Number of Staff Needed *</Label>
+              <Input
+                id="job-staff-needed"
+                type="number"
+                min={1}
+                step={1}
+                value={staffNeeded}
+                onChange={(e) => setStaffNeeded(e.target.value)}
+                placeholder="5"
+              />
+              <p className="text-xs text-gray-500">
+                Shown on the careers listing as positions available. The job auto-marks as Filled when this many people
+                are hired.
+              </p>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="job-desc">Qualifications (one per line) *</Label>
               <Textarea
                 id="job-desc"
@@ -133,7 +193,7 @@ export default function Recruitment() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Open Positions</CardTitle>
+          <CardTitle>Job Listings</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -142,6 +202,7 @@ export default function Recruitment() {
                 <TableRow>
                   <TableHead>Job Title</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Hiring</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Posted On</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -150,38 +211,68 @@ export default function Recruitment() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       Loading jobs...
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                       No jobs posted yet.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell className="font-medium">
-                        <Link href={`/recruitment/${job.id}`} className="hover:underline text-primary">
-                          {job.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{job.department}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={job.status} />
-                      </TableCell>
-                      <TableCell>{new Date(job.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/apply/${job.id}`} target="_blank">
-                            <ExternalLink className="h-4 w-4 mr-2" /> Apply link
+                  rows.map((job) => {
+                    const needed = job.staffNeeded ?? 1;
+                    const hired = job.hiredCount ?? 0;
+                    const remaining = Math.max(0, needed - hired);
+                    return (
+                      <TableRow key={job.id}>
+                        <TableCell className="font-medium">
+                          <Link href={`/recruitment/${job.id}`} className="hover:underline text-primary">
+                            {job.title}
                           </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell>{job.department}</TableCell>
+                        <TableCell className="text-sm text-gray-700">
+                          {hired}/{needed} hired
+                          {job.status === "active" && remaining > 0 ? (
+                            <span className="block text-xs text-gray-500">
+                              {remaining} position{remaining === 1 ? "" : "s"} open
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={job.status} />
+                        </TableCell>
+                        <TableCell>{new Date(job.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {job.status === "active" ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                                disabled={closingId === job.id || updateJob.isPending}
+                                onClick={() => handleCloseJob(job)}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                {closingId === job.id ? "Closing…" : "Close"}
+                              </Button>
+                            ) : null}
+                            {job.status === "active" ? (
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/apply/${job.id}`} target="_blank">
+                                  <ExternalLink className="h-4 w-4 mr-2" /> Apply link
+                                </Link>
+                              </Button>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

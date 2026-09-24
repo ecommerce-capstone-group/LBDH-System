@@ -141,7 +141,7 @@ paths:
       parameters:
         - in: query
           name: status
-          schema: { type: string, description: "active | closed" }
+          schema: { type: string, description: "active | closed | filled" }
       responses:
         "200":
           description: OK
@@ -969,7 +969,7 @@ components:
 
     Job:
       type: object
-      required: [id, title, department, description, requirements, status, createdAt]
+      required: [id, title, department, description, requirements, staffNeeded, hiredCount, status, createdAt]
       properties:
         id: { type: integer }
         title: { type: string }
@@ -978,7 +978,15 @@ components:
         requirements:
           type: array
           items: { $ref: "#/components/schemas/Requirement" }
-        status: { type: string, description: "active | closed" }
+        staffNeeded:
+          type: integer
+          minimum: 1
+          description: Number of staff needed for this listing
+        hiredCount:
+          type: integer
+          minimum: 0
+          description: Count of onboardings for this job with status hired (computed)
+        status: { type: string, description: "active | closed | filled" }
         createdAt: { type: string }
 
     JobInput:
@@ -991,7 +999,12 @@ components:
         requirements:
           type: array
           items: { $ref: "#/components/schemas/Requirement" }
-        status: { type: string, nullable: true }
+        staffNeeded:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Number of staff needed (defaults to 1)
+        status: { type: string, nullable: true, description: "active | closed | filled" }
 
     RequirementAnswer:
       type: object

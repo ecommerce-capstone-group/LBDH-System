@@ -17,7 +17,8 @@ services:
       node lib/db/scripts/migrate-appraisals.mjs &&
       node lib/db/scripts/migrate-training-appraisals.mjs &&
       node lib/db/scripts/migrate-employee-incidents.mjs &&
-      node lib/db/scripts/migrate-onboardings.mjs
+      node lib/db/scripts/migrate-onboardings.mjs &&
+      node lib/db/scripts/ensure-jobs-staff-needed.mjs
     startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:

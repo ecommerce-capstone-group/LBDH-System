@@ -64,7 +64,17 @@ export interface Job {
   department: string;
   description: string;
   requirements: Requirement[];
-  /** active | closed */
+  /**
+   * Number of staff needed for this listing
+   * @minimum 1
+   */
+  staffNeeded: number;
+  /**
+   * Count of onboardings for this job with status hired (computed)
+   * @minimum 0
+   */
+  hiredCount: number;
+  /** active | closed | filled */
   status: string;
   createdAt: string;
 }
@@ -74,6 +84,12 @@ export interface JobInput {
   department: string;
   description: string;
   requirements: Requirement[];
+  /**
+   * Number of staff needed (defaults to 1)
+   * @minimum 1
+   */
+  staffNeeded?: number | null;
+  /** active | closed | filled */
   status?: string | null;
 }
 
@@ -645,7 +661,7 @@ export type ListExpiringLicensesParams = {
 
 export type ListJobsParams = {
   /**
-   * active | closed
+   * active | closed | filled
    */
   status?: string;
 };

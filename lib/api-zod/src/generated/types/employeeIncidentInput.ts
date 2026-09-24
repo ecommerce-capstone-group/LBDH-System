@@ -5,8 +5,8 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { IncidentActionTaken } from './incidentActionTaken';
-import type { IncidentStatus } from './incidentStatus';
+import type { IncidentActionTaken } from "./incidentActionTaken";
+import type { IncidentStatus } from "./incidentStatus";
 
 export interface EmployeeIncidentInput {
   employeeId: number;

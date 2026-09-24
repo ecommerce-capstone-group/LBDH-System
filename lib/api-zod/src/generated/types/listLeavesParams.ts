@@ -7,5 +7,5 @@
  */
 
 export type ListLeavesParams = {
-employeeId?: number;
+  employeeId?: number;
 };

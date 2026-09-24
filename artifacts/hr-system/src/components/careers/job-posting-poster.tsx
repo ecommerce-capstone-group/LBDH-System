@@ -47,7 +47,15 @@ export function JobPostingPoster({ job, showApplyButton = true }: JobPostingPost
           </span>
         </p>
         <p className="mt-2 text-sky-200 italic text-lg font-light">Join our team</p>
-        <p className="mt-4 text-[10px] uppercase tracking-widest text-sky-200/70">
+        <p className="mt-3 text-sm font-semibold text-white">
+          {(() => {
+            const needed = job.staffNeeded ?? 1;
+            const hired = job.hiredCount ?? 0;
+            const open = Math.max(0, needed - hired);
+            return open === 1 ? "1 position available" : `${open} positions available`;
+          })()}
+        </p>
+        <p className="mt-2 text-[10px] uppercase tracking-widest text-sky-200/70">
           {job.department} • Posted {new Date(job.createdAt).toLocaleDateString()}
         </p>
       </div>

@@ -111,7 +111,9 @@ export default function ApplyJob() {
       <LbdhCareersShell compactHeader>
         <Card className="w-full text-center">
           <CardContent className="pt-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Position Closed</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {jobData.status === "filled" ? "Position Filled" : "Position Closed"}
+            </h2>
             <p className="text-gray-500 mb-4">Applications are no longer accepted for this role.</p>
             <Button variant="outline" asChild>
               <Link href="/careers">View open positions</Link>

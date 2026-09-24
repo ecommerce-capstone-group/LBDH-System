@@ -41,6 +41,9 @@ export const jobs = pgTable("jobs", {
   department: text("department").notNull(),
   description: text("description").notNull(),
   requirements: jsonb("requirements").$type<Requirement[]>().notNull(),
+  /** How many people HR needs to hire for this listing. */
+  staffNeeded: integer("staff_needed").notNull().default(1),
+  /** active | closed | filled — closed/filled reject new applications but keep applicant history. */
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

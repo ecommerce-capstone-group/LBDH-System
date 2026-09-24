@@ -5,9 +5,9 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { RequestType } from './requestType';
+import type { RequestType } from "./requestType";
 
 export type ListRequestsParams = {
-employeeId?: number;
-type?: RequestType;
+  employeeId?: number;
+  type?: RequestType;
 };

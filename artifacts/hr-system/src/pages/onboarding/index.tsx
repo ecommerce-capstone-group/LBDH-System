@@ -152,6 +152,7 @@ export default function OnboardingPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["/api/onboardings"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
       toast.success(`Employee created: EMP-${String(result.employee.id).padStart(4, "0")}`);
       setHireRecord(null);

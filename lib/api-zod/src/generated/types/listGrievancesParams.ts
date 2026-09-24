@@ -7,5 +7,5 @@
  */
 
 export type ListGrievancesParams = {
-employeeId?: number;
+  employeeId?: number;
 };

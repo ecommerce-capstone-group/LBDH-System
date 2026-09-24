@@ -5,7 +5,7 @@
  * Los Banos Doctors Hospital HR API
  * OpenAPI spec version: 0.1.0
  */
-import type { PreEmploymentRequirement } from "./preEmploymentRequirement";
+import type { PreEmploymentRequirement } from './preEmploymentRequirement';
 
 export interface OnboardingUpdate {
   interviewScheduledAt?: string | null;

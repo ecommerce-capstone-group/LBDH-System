@@ -12,5 +12,11 @@ export interface JobInput {
   department: string;
   description: string;
   requirements: Requirement[];
+  /**
+   * Number of staff needed (defaults to 1)
+   * @minimum 1
+   */
+  staffNeeded?: number | null;
+  /** active | closed | filled */
   status?: string | null;
 }

@@ -8,7 +8,7 @@ import {
   DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS,
   type PreEmploymentRequirement,
 } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -286,6 +286,23 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
       })
       .where(eq(onboardings.id, id))
       .returning();
+
+    // Auto-mark job as filled when hired count reaches staff needed (keeps applicants).
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, existing.jobId));
+    if (job && job.status === "active") {
+      const [hiredRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(onboardings)
+        .where(and(eq(onboardings.jobId, existing.jobId), eq(onboardings.status, "hired")));
+      const hiredCount = Number(hiredRow?.count) || 0;
+      const staffNeeded = job.staffNeeded ?? 1;
+      if (hiredCount >= staffNeeded) {
+        await db
+          .update(jobs)
+          .set({ status: "filled" })
+          .where(eq(jobs.id, existing.jobId));
+      }
+    }
 
     res.status(201).json({ onboarding, employee });
   } catch (err) {

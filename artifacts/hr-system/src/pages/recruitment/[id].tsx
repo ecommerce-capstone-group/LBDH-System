@@ -8,25 +8,30 @@ import {
   useCreateOnboarding,
   useListOnboardings,
   getListOnboardingsQueryKey,
+  useUpdateJob,
 } from "@workspace/api-client-react";
 import type { Applicant, Job, Requirement, RequirementMatch, Onboarding } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FitScoreBar } from "@/components/fit-score-bar";
-import { Check, X, Mail, Phone, RefreshCw, UserCheck } from "lucide-react";
+import { Check, X, Mail, Phone, RefreshCw, UserCheck, XCircle } from "lucide-react";
 import { asArray, isRecord } from "@/lib/api-guards";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export default function JobDetail() {
   const queryClient = useQueryClient();
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
+  const [closing, setClosing] = useState(false);
 
   const { data: job, isLoading: isLoadingJob } = useGetJob(id, {
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) },
   });
+
+  const updateJob = useUpdateJob();
 
   const {
     data: applicants,
@@ -69,6 +74,40 @@ export default function JobDetail() {
 
   const jobData = job as Job;
   const requirements = Array.isArray(jobData.requirements) ? jobData.requirements : [];
+  const staffNeeded = jobData.staffNeeded ?? 1;
+  const hiredCount = jobData.hiredCount ?? 0;
+  const remaining = Math.max(0, staffNeeded - hiredCount);
+
+  const handleCloseJob = async () => {
+    if (jobData.status !== "active") return;
+    const ok = window.confirm(
+      `Close "${jobData.title}"? It will be removed from the careers page. Existing applicants are kept.`,
+    );
+    if (!ok) return;
+    setClosing(true);
+    try {
+      await updateJob.mutateAsync({
+        id: jobData.id,
+        data: {
+          title: jobData.title,
+          department: jobData.department,
+          description: jobData.description,
+          requirements: jobData.requirements,
+          staffNeeded,
+          status: "closed",
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+      await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+      toast.success("Job listing closed. New applications are blocked.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Could not close job.";
+      toast.error(msg);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -81,14 +120,39 @@ export default function JobDetail() {
           <p className="text-gray-500">
             {jobData.department} • Posted {new Date(jobData.createdAt).toLocaleDateString()}
           </p>
+          <p className="text-sm text-gray-600 mt-1">
+            {hiredCount}/{staffNeeded} hired
+            {jobData.status === "active"
+              ? ` · ${remaining} position${remaining === 1 ? "" : "s"} available`
+              : null}
+          </p>
         </div>
-        <div className="flex flex-col items-end gap-1 text-sm">
+        <div className="flex flex-col items-end gap-2 text-sm">
+          {jobData.status === "active" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-red-700 border-red-200 hover:bg-red-50"
+              disabled={closing || updateJob.isPending}
+              onClick={handleCloseJob}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              {closing ? "Closing…" : "Close listing"}
+            </Button>
+          ) : null}
           <Link href="/careers" target="_blank" className="font-medium text-primary hover:underline">
             Public /careers
           </Link>
-          <Link href={`/apply/${jobData.id}`} target="_blank" className="text-gray-600 hover:underline">
-            Direct apply link
-          </Link>
+          {jobData.status === "active" ? (
+            <Link href={`/apply/${jobData.id}`} target="_blank" className="text-gray-600 hover:underline">
+              Direct apply link
+            </Link>
+          ) : (
+            <p className="text-xs text-gray-500 max-w-[14rem] text-right">
+              Listing is {jobData.status}. Applicants below are retained; new applications are blocked.
+            </p>
+          )}
         </div>
       </div>
 
