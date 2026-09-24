@@ -81,20 +81,37 @@ router.post("/employees", async (req, res) => {
       })
       .returning();
 
-    const account = await provisionEmployeeAccount({
-      employeeId: row!.id,
-      name: row!.name,
-      email: row!.email,
-    });
+    let account: Awaited<ReturnType<typeof provisionEmployeeAccount>> = null;
+    try {
+      account = await provisionEmployeeAccount({
+        employeeId: row!.id,
+        name: row!.name,
+        email: row!.email,
+      });
+    } catch (provisionErr) {
+      console.error("provision employee account failed", provisionErr);
+      return res.status(201).json({
+        ...row,
+        account: null,
+        accountError:
+          "Employee saved but login account could not be created. Check employee_accounts migration.",
+      });
+    }
+
+    if (!account) {
+      return res.status(201).json({
+        ...row,
+        account: null,
+        accountError: "An account already exists for this employee.",
+      });
+    }
 
     res.status(201).json({
       ...row,
-      account: account
-        ? {
-            username: account.username,
-            temporaryPassword: account.temporaryPassword,
-          }
-        : null,
+      account: {
+        username: account.username,
+        temporaryPassword: account.temporaryPassword,
+      },
     });
   } catch (err) {
     console.error("create employee failed", err);

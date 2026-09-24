@@ -101,7 +101,15 @@ export default function Employees() {
         });
         toast.success("Employee added. Login credentials are shown once.");
       } else {
-        toast.success("Employee added.");
+        const detail =
+          "accountError" in created && typeof (created as { accountError?: string }).accountError === "string"
+            ? (created as { accountError?: string }).accountError
+            : null;
+        toast.error(
+          detail ||
+            "Employee profile was saved, but login credentials were not returned. Redeploy the API on Render (main branch), then try Add Employee again.",
+          { duration: 10000 },
+        );
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not create employee.";
