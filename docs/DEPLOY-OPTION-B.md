@@ -133,7 +133,8 @@ You should get JSON (proxied to Render). If you see HTML or 502, check Parts 3�
 |--------|-----|
 | Vercel UI loads but no data | Update `vercel.json` Render URL; redeploy Vercel |
 | `/api/employees` HTML on Render | `DATABASE_URL` wrong or DB not seeded — repeat Part 2 |
-| Render build fails on `pnpm` | Ensure repo uses pnpm; `render.yaml` enables corepack |
+| Render build fails on `pnpm` / `corepack enable` EROFS | `render.yaml` installs pnpm via `npm install -g pnpm@9.15.0` (no corepack enable) |
+
 | `db:push` fails locally | Set `$env:DATABASE_URL` to Neon URL with `?sslmode=require` |
 | Slow first API call | Render free tier cold start — wait and retry |
 | Local dev still broken | Use `.env` with local Postgres + `API_PROXY_TARGET=http://127.0.0.1:8080` (see `scripts/start-local-dev.ps1`) |
