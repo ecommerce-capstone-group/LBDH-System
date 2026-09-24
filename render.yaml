@@ -8,10 +8,10 @@ services:
     runtime: node
     plan: free
     region: oregon
+    # Avoid `corepack enable` — Render's filesystem is read-only at /usr/bin.
     # NODE_ENV=production (below) skips devDependencies; esbuild is required to build.
     buildCommand: >-
-      corepack enable &&
-      corepack prepare pnpm@9.15.0 --activate &&
+      npm install -g pnpm@9.15.0 &&
       NODE_ENV=development pnpm install --frozen-lockfile --filter @workspace/api-server... &&
       NODE_ENV=development pnpm --filter @workspace/api-server run build &&
       node lib/db/scripts/migrate-appraisals.mjs &&
