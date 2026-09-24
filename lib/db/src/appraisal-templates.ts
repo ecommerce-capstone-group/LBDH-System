@@ -167,9 +167,17 @@ export const APPRAISAL_WORKFLOW: Record<
 > = {
   non_supervisory: [
     {
+      name: "Employee Self-Assessment",
+      description: "Employee completes self-assessment",
+    },
+    {
       name: "Appraiser Evaluation",
       description:
         "Final scores, strengths, areas for improvement, action plans, goals, recommendations",
+    },
+    {
+      name: "Unit Head Approval",
+      description: "Unit Head reviews and approves the appraisal",
     },
     {
       name: "Department Head Review & Signature",
@@ -195,6 +203,10 @@ export const APPRAISAL_WORKFLOW: Record<
       description: "Appraiser completes the evaluation",
     },
     {
+      name: "Unit Head Approval",
+      description: "Unit Head reviews and approves the appraisal",
+    },
+    {
       name: "HR Department Review & Signature",
       description: "Final HR signatory (no Department Head on this form)",
     },
@@ -204,6 +216,34 @@ export const APPRAISAL_WORKFLOW: Record<
     },
   ],
 };
+
+/** Compact stage labels used in appraisal approval status display. */
+export const APPRAISAL_STAGE_LABELS = {
+  selfAssessment: "Self Assessment",
+  unitHead: "Unit Head",
+  department: "Department",
+  hr: "HR",
+} as const;
+
+export type AppraisalApproverRole = "employee" | "unit_head" | "hr";
+
+/**
+ * Which login role may approve a given workflow step.
+ * Appraiser evaluation is completed by HR when filing the form.
+ */
+export function approverRoleForAppraisalStep(
+  stepName: string,
+): AppraisalApproverRole | null {
+  const name = stepName.toLowerCase();
+  if (name.includes("self-assessment")) return "employee";
+  if (name.includes("unit head")) return "unit_head";
+  if (name.includes("acknowledgement")) return "employee";
+  if (name.includes("department head") || name.includes("hr department")) {
+    return "hr";
+  }
+  if (name.includes("appraiser")) return "hr";
+  return null;
+}
 
 export function appraisalWorkflowSteps(
   type: AppraisalTemplateType,

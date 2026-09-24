@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 
-export type Role = "hr" | "employee";
+export type Role = "hr" | "employee" | "unit_head";
 
 export interface User {
   username: string;
@@ -11,13 +11,19 @@ export interface User {
 
 const STORAGE_KEY = "hr_user";
 const AUTH_EVENT = "hr-auth-changed";
+const VALID_ROLES: Role[] = ["hr", "employee", "unit_head"];
 
 function readStored(): User | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as User;
+    const parsed = JSON.parse(raw) as User;
+    if (!VALID_ROLES.includes(parsed.role)) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     window.localStorage.removeItem(STORAGE_KEY);
     return null;

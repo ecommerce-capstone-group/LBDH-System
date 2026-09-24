@@ -1,20 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import {
   APPRAISAL_TEMPLATES,
   APPRAISAL_TYPES,
   APPRAISAL_WORKFLOW,
   allCriteriaForTemplate,
+  approverRoleForAppraisalStep,
   maxPossibleTotal,
+  type AppraisalApproverRole,
   type AppraisalTemplateType,
 } from "@workspace/db/appraisal-templates";
-import type { AppraisalInput, Employee } from "@workspace/api-client-react";
+import type {
+  Appraisal,
+  AppraisalInput,
+  ApprovalStep,
+  Employee,
+  EmployeeIncident,
+} from "@workspace/api-client-react";
+import {
+  useListIncidents,
+  getListIncidentsQueryKey,
+} from "@workspace/api-client-react";
+import { asArray } from "@/lib/api-guards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import type { Role } from "@/hooks/use-auth";
 
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -26,118 +41,107 @@ function inferTemplateType(role: string): AppraisalTemplateType {
   return SUPERVISORY_ROLE_PATTERN.test(role) ? "supervisory" : "non_supervisory";
 }
 
-type ProgressState = "Completed" | "Pending" | "Missing" | "Archived";
-
-type AppraisalProgressItem = {
-  label: string;
-  state: ProgressState;
-};
-
 function hasText(value: string | null | undefined): boolean {
   return Boolean(value && value.trim());
 }
 
-function hasSignatory(
-  appraisal: import("@workspace/api-client-react").Appraisal,
-  role: string,
-): boolean {
+function hasSignatory(appraisal: Appraisal, role: string): boolean {
   return appraisal.signatories.some((s) => s.role === role && hasText(s.name));
 }
 
-function getAppraisalProgress(
-  appraisal: import("@workspace/api-client-react").Appraisal,
-): {
-  items: AppraisalProgressItem[];
-  currentStatus: string;
-  isArchived: boolean;
-  readyForArchive: boolean;
-} {
-  const isArchived = appraisal.status === "archived" || Boolean(appraisal.archivedAt);
+function findStepStatus(
+  steps: ApprovalStep[],
+  match: (name: string) => boolean,
+): "approved" | "rejected" | "pending" | "n/a" {
+  const step = steps.find((s) => match(s.name.toLowerCase()));
+  if (!step) return "n/a";
+  if (step.status === "approved") return "approved";
+  if (step.status === "rejected") return "rejected";
+  return "pending";
+}
+
+function formatStageMark(status: "approved" | "rejected" | "pending" | "n/a"): string {
+  if (status === "approved") return "✓";
+  if (status === "rejected") return "Rejected";
+  if (status === "n/a") return "—";
+  return "Pending";
+}
+
+type CompactStage = {
+  label: string;
+  status: "approved" | "rejected" | "pending" | "n/a";
+};
+
+function getCompactApprovalStages(appraisal: Appraisal): CompactStage[] {
+  const steps = appraisal.steps ?? [];
+  const stages: CompactStage[] = [
+    {
+      label: "Self Assessment",
+      status: findStepStatus(steps, (n) => n.includes("self-assessment")),
+    },
+    {
+      label: "Unit Head",
+      status: findStepStatus(steps, (n) => n.includes("unit head")),
+    },
+  ];
+
+  if (appraisal.templateType === "non_supervisory") {
+    stages.push({
+      label: "Department",
+      status: findStepStatus(steps, (n) => n.includes("department head")),
+    });
+  }
+
+  stages.push({
+    label: "HR",
+    status: findStepStatus(steps, (n) => n.includes("hr department")),
+  });
+
+  return stages;
+}
+
+function canArchiveAppraisal(appraisal: Appraisal): boolean {
   const selfAssessmentDone = hasText(appraisal.employeeSelfAssessment);
   const evaluationDone = appraisal.criterionScores.length > 0;
   const departmentHeadDone =
-    hasText(appraisal.departmentHeadComments) || hasSignatory(appraisal, "Department Head");
-  const hrReviewDone = hasText(appraisal.hrComments) || hasSignatory(appraisal, "HR");
+    hasText(appraisal.departmentHeadComments) ||
+    hasSignatory(appraisal, "Department Head");
+  const hrReviewDone =
+    hasText(appraisal.hrComments) || hasSignatory(appraisal, "HR");
   const acknowledgementDone =
     hasText(appraisal.employeeAcknowledgement) ||
     hasSignatory(appraisal, "Employee") ||
     hasSignatory(appraisal, "Supervisor/Manager");
 
-  const sequence =
-    appraisal.templateType === "non_supervisory"
-      ? [
-          { label: "Self-assessment submitted", done: selfAssessmentDone },
-          { label: "Appraiser evaluation completed", done: evaluationDone },
-          { label: "Department head review completed", done: departmentHeadDone },
-          { label: "HR review completed", done: hrReviewDone },
-          { label: "Employee acknowledgement completed", done: acknowledgementDone },
-        ]
-      : [
-          { label: "Self-assessment submitted", done: selfAssessmentDone },
-          { label: "Appraiser evaluation completed", done: evaluationDone },
-          { label: "HR review completed", done: hrReviewDone },
-          { label: "Employee acknowledgement completed", done: acknowledgementDone },
-        ];
+  const workflowDone =
+    appraisal.status === "approved" ||
+    (appraisal.steps?.length > 0 &&
+      appraisal.steps.every((s) => s.status === "approved"));
 
-  const readyForArchive = sequence.every((step) => step.done);
-  const completedAfter = sequence.map((step, index) =>
-    sequence.slice(index + 1).some((next) => next.done),
+  if (appraisal.templateType === "non_supervisory") {
+    return (
+      (selfAssessmentDone || workflowDone) &&
+      evaluationDone &&
+      (departmentHeadDone || workflowDone) &&
+      (hrReviewDone || workflowDone) &&
+      (acknowledgementDone || workflowDone)
+    );
+  }
+
+  return (
+    (selfAssessmentDone || workflowDone) &&
+    evaluationDone &&
+    (hrReviewDone || workflowDone) &&
+    (acknowledgementDone || workflowDone)
   );
-  const items: AppraisalProgressItem[] = sequence.map((step, index) => {
-    if (isArchived) return { label: step.label, state: "Completed" };
-    if (step.done) return { label: step.label, state: "Completed" };
-    return {
-      label: step.label,
-      state: completedAfter[index] ? "Missing" : "Pending",
-    };
-  });
-
-  items.push({
-    label: "Archived",
-    state: isArchived ? "Archived" : "Pending",
-  });
-
-  if (isArchived) {
-    return {
-      items,
-      currentStatus: "Archived",
-      isArchived,
-      readyForArchive,
-    };
-  }
-
-  const missingIdx = sequence.findIndex((step) => !step.done);
-  if (missingIdx >= 0) {
-    const waitingLabels =
-      appraisal.templateType === "non_supervisory"
-        ? [
-            "Self-Assessment",
-            "Appraiser Evaluation",
-            "Department Head Review",
-            "HR Review",
-            "Employee Acknowledgement",
-          ]
-        : [
-            "Self-Assessment",
-            "Appraiser Evaluation",
-            "HR Review",
-            "Employee Acknowledgement",
-          ];
-    return {
-      items,
-      currentStatus: `Waiting for ${waitingLabels[missingIdx]}`,
-      isArchived,
-      readyForArchive,
-    };
-  }
-
-  return {
-    items,
-    currentStatus: "Ready for Archive",
-    isArchived,
-    readyForArchive,
-  };
 }
+
+const ACTION_TAKEN_LABELS: Record<string, string> = {
+  oral_reprimand: "Oral reprimand",
+  warning: "Warning",
+  suspension: "Suspension",
+  other: "Other",
+};
 
 type AppraisalFormProps = {
   employees: Employee[];
@@ -192,6 +196,19 @@ export function AppraisalForm({
       return sum + (Number.isFinite(v) ? v : 0);
     }, 0);
   }, [criteria, scores]);
+
+  const { data: incidentsData } = useListIncidents(
+    { employeeId: Number(employeeId) || undefined },
+    {
+      query: {
+        queryKey: getListIncidentsQueryKey({
+          employeeId: Number(employeeId) || undefined,
+        }),
+        enabled: Boolean(employeeId),
+      },
+    },
+  );
+  const incidentRows = asArray<EmployeeIncident>(incidentsData);
 
   useEffect(() => {
     if (!employeeId) return;
@@ -314,17 +331,11 @@ export function AppraisalForm({
             ))}
             <li className="font-medium text-gray-800">Archive to employee appraisal history</li>
           </ol>
-          {templateType === "non_supervisory" ? (
-            <p className="text-xs text-muted-foreground mt-3">
-              Save now to record the appraiser evaluation. Employee acknowledgement is collected
-              after Department Head and HR signatures.
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-3">
-              Include self-assessment if already completed; otherwise the record starts at step 1
-              for the employee.
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground mt-3">
+            Approval stages: Self Assessment → Unit Head →{" "}
+            {templateType === "non_supervisory" ? "Department → " : ""}
+            HR. Only the authorized role can complete each stage.
+          </p>
         </CardContent>
       </Card>
 
@@ -378,6 +389,31 @@ export function AppraisalForm({
           </select>
         </div>
       </div>
+
+      {employeeId ? (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Related incidents / violations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Supporting information only — incidents do not automatically change appraisal scores.
+            </p>
+            {incidentRows.length === 0 ? (
+              <p className="text-sm text-gray-500">No incidents recorded for this employee.</p>
+            ) : (
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                {incidentRows.map((inc) => (
+                  <IncidentSummaryCard key={inc.id} incident={inc} />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-3">
@@ -438,28 +474,24 @@ export function AppraisalForm({
         </CardContent>
       </Card>
 
-      {templateType === "supervisory" ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">A. Employee self-assessment (Step 1)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={employeeSelfAssessment}
-              onChange={(e) => setEmployeeSelfAssessment(e.target.value)}
-              rows={4}
-              placeholder="Supervisor/Manager self-assessment…"
-            />
-          </CardContent>
-        </Card>
-      ) : null}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Employee self-assessment</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={employeeSelfAssessment}
+            onChange={(e) => setEmployeeSelfAssessment(e.target.value)}
+            rows={4}
+            placeholder="Employee self-assessment (optional at create — can be completed in the Self Assessment approval stage)…"
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            {templateType === "non_supervisory"
-              ? "A. Appraiser evaluation (Step 1) — scores & narrative"
-              : "B. Appraiser evaluation (Step 2)"}
+            Appraiser evaluation — scores & narrative
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -488,11 +520,7 @@ export function AppraisalForm({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            {templateType === "non_supervisory"
-              ? "B. Employee development goals"
-              : "C. Employee development goals"}
-          </CardTitle>
+          <CardTitle className="text-base">Employee development goals</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
@@ -518,7 +546,7 @@ export function AppraisalForm({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              C. Performance Criteria (1–{template.maxScore})
+              Performance Criteria (1–{template.maxScore})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -613,13 +641,6 @@ export function AppraisalForm({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Planned signatures</CardTitle>
         </CardHeader>
-        <CardContent className="pb-2">
-          <p className="text-xs text-muted-foreground">
-            {templateType === "non_supervisory"
-              ? "Employee acknowledgement is collected in the workflow after HR review—not on initial appraiser save."
-              : "Supervisor/Manager acknowledgement is the final workflow step before archive."}
-          </p>
-        </CardContent>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           {template.signatoryRoles.map((role) => (
             <div key={role} className="grid gap-2">
@@ -656,18 +677,81 @@ export function AppraisalForm({
   );
 }
 
+function IncidentSummaryCard({ incident }: { incident: EmployeeIncident }) {
+  return (
+    <div className="rounded-md border bg-white p-3 text-sm space-y-1">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium">{incident.policyViolated}</span>
+        <StatusBadge status={incident.status} />
+      </div>
+      <p className="text-xs text-gray-500">
+        {new Date(incident.incidentDate).toLocaleDateString()} ·{" "}
+        {ACTION_TAKEN_LABELS[incident.actionTaken] ?? incident.actionTaken}
+      </p>
+      <p className="text-gray-700 whitespace-pre-wrap">{incident.violationDescription}</p>
+      {incident.hrRemarks ? (
+        <p className="text-xs text-gray-600">
+          <span className="font-medium">Notes:</span> {incident.hrRemarks}
+        </p>
+      ) : null}
+      {incident.actionDetails ? (
+        <p className="text-xs text-gray-600">
+          <span className="font-medium">Action details:</span> {incident.actionDetails}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+type AppraisalAdvanceHandler = (input: {
+  decision: "approve" | "reject";
+  note?: string;
+}) => Promise<void>;
+
 type AppraisalDetailProps = {
-  appraisal: import("@workspace/api-client-react").Appraisal;
+  appraisal: Appraisal;
+  currentUserRole?: Role;
+  currentUserName?: string;
+  onAdvance?: AppraisalAdvanceHandler;
   onArchive?: (signedFormReference: string) => Promise<void>;
+  isAdvancing?: boolean;
 };
 
 export function AppraisalDetailView({
   appraisal,
+  currentUserRole,
+  currentUserName,
+  onAdvance,
   onArchive,
+  isAdvancing,
 }: AppraisalDetailProps) {
   const template = APPRAISAL_TEMPLATES[appraisal.templateType];
   const maxTotal = maxPossibleTotal(template);
-  const progress = getAppraisalProgress(appraisal);
+  const compactStages = getCompactApprovalStages(appraisal);
+  const readyForArchive = canArchiveAppraisal(appraisal);
+  const isArchived = appraisal.status === "archived" || Boolean(appraisal.archivedAt);
+  const [note, setNote] = useState("");
+
+  const { data: incidentsData, isLoading: incidentsLoading } = useListIncidents(
+    { employeeId: appraisal.employeeId },
+    {
+      query: {
+        queryKey: getListIncidentsQueryKey({ employeeId: appraisal.employeeId }),
+      },
+    },
+  );
+  const incidentRows = asArray<EmployeeIncident>(incidentsData);
+
+  const pendingStep = (appraisal.steps ?? []).find((s) => s.status === "pending");
+  const requiredRole: AppraisalApproverRole | null = pendingStep
+    ? approverRoleForAppraisalStep(pendingStep.name)
+    : null;
+  const canActOnCurrentStep =
+    Boolean(onAdvance) &&
+    Boolean(pendingStep) &&
+    appraisal.status === "pending" &&
+    currentUserRole != null &&
+    requiredRole === currentUserRole;
 
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 text-sm">
@@ -695,7 +779,8 @@ export function AppraisalDetailView({
           {appraisal.evaluatorPosition})
         </p>
         <p>
-          <span className="text-gray-500">Current status:</span> {progress.currentStatus}
+          <span className="text-gray-500">Current step:</span>{" "}
+          {isArchived ? "Archived" : appraisal.currentStep}
         </p>
         <p className="font-semibold text-emerald-700">
           Total: {appraisal.totalScore} / {maxTotal}
@@ -703,42 +788,143 @@ export function AppraisalDetailView({
       </div>
 
       <div className="rounded-lg border p-4 bg-gray-50">
-        <p className="font-medium mb-3">Appraisal Progress</p>
+        <p className="font-medium mb-3">Approval status</p>
         <ul className="space-y-2">
-          {progress.items.map((item) => (
-            <li key={item.label} className="flex items-center justify-between gap-3">
+          {compactStages.map((stage) => (
+            <li key={stage.label} className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-2">
-                {item.state === "Completed" || item.state === "Archived" ? (
+                {stage.status === "approved" ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 ) : (
                   <Circle className="h-4 w-4 text-gray-400" />
                 )}
-                {item.label}
+                {stage.label}
               </span>
               <span
                 className={
-                  item.state === "Completed"
+                  stage.status === "approved"
                     ? "text-emerald-700 text-xs font-medium"
-                    : item.state === "Archived"
-                      ? "text-indigo-700 text-xs font-medium"
-                      : item.state === "Missing"
-                        ? "text-rose-700 text-xs font-medium"
-                        : "text-amber-700 text-xs font-medium"
+                    : stage.status === "rejected"
+                      ? "text-rose-700 text-xs font-medium"
+                      : "text-amber-700 text-xs font-medium"
                 }
               >
-                {item.state}
+                {formatStageMark(stage.status)}
               </span>
             </li>
           ))}
         </ul>
-        {progress.readyForArchive && !progress.isArchived && onArchive ? (
-          <ArchiveAppraisalAction onArchive={onArchive} />
+
+        <div className="mt-4 border-t pt-3 space-y-2">
+          <p className="text-xs font-medium text-gray-700">Workflow steps</p>
+          {(appraisal.steps ?? []).map((step) => (
+            <div key={step.name} className="flex items-center justify-between text-xs gap-2">
+              <span>{step.name}</span>
+              <span
+                className={
+                  step.status === "approved"
+                    ? "text-emerald-700"
+                    : step.status === "rejected"
+                      ? "text-rose-700"
+                      : "text-amber-700"
+                }
+              >
+                {step.status === "approved"
+                  ? "✓"
+                  : step.status === "rejected"
+                    ? "Rejected"
+                    : "Pending"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {canActOnCurrentStep && pendingStep ? (
+          <div className="mt-4 border-t pt-4 space-y-3">
+            <p className="text-sm font-medium">
+              Your action: {pendingStep.name}
+              {currentUserName ? (
+                <span className="text-gray-500 font-normal"> — {currentUserName}</span>
+              ) : null}
+            </p>
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="Optional note for this approval…"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={isAdvancing}
+                onClick={() => {
+                  onAdvance?.({
+                    decision: "approve",
+                    note: note.trim() || undefined,
+                  }).then(() => setNote(""));
+                }}
+              >
+                Approve stage
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isAdvancing}
+                onClick={() => {
+                  onAdvance?.({
+                    decision: "reject",
+                    note: note.trim() || undefined,
+                  }).then(() => setNote(""));
+                }}
+              >
+                Reject
+              </Button>
+            </div>
+          </div>
         ) : null}
-        {!progress.readyForArchive && !progress.isArchived ? (
+
+        {!canActOnCurrentStep &&
+        appraisal.status === "pending" &&
+        pendingStep &&
+        requiredRole ? (
           <p className="text-xs text-muted-foreground mt-3">
-            Status updates automatically when required sections and signatories are completed.
+            Waiting for{" "}
+            {requiredRole === "employee"
+              ? "the employee"
+              : requiredRole === "unit_head"
+                ? "Unit Head"
+                : "HR"}{" "}
+            to complete: {pendingStep.name}.
           </p>
         ) : null}
+
+        {readyForArchive && !isArchived && onArchive ? (
+          <ArchiveAppraisalAction onArchive={onArchive} />
+        ) : null}
+      </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4">
+        <p className="font-medium mb-1 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          Incidents / violations (supporting information)
+        </p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Shown for the appraiser&apos;s reference only. These records do not automatically
+          lower the appraisal score.
+        </p>
+        {incidentsLoading ? (
+          <p className="text-sm text-gray-500">Loading incidents…</p>
+        ) : incidentRows.length === 0 ? (
+          <p className="text-sm text-gray-500">No incidents recorded for this employee.</p>
+        ) : (
+          <div className="space-y-3">
+            {incidentRows.map((inc) => (
+              <IncidentSummaryCard key={inc.id} incident={inc} />
+            ))}
+          </div>
+        )}
       </div>
 
       {appraisal.employeeSelfAssessment ? (
@@ -761,7 +947,7 @@ export function AppraisalDetailView({
 
       {appraisal.appraiserComments ? (
         <div>
-          <p className="font-medium">Appraiser comments</p>
+          <p className="font-medium">Appraiser / Unit Head comments</p>
           <p className="text-gray-600 whitespace-pre-wrap">{appraisal.appraiserComments}</p>
         </div>
       ) : null}

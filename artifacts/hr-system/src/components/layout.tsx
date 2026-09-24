@@ -45,13 +45,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/reports", label: "Reports", icon: PieChart },
   ];
 
+  const unitHeadLinks = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/performance", label: "Performance", icon: TrendingUp },
+  ];
+
   const employeeLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/self-service", label: "Self Service", icon: UserCircle },
+    { href: "/performance", label: "My Appraisals", icon: TrendingUp },
     { href: "/payslip", label: "Payslip", icon: Receipt },
   ];
 
-  const links = user.role === "hr" ? hrLinks : employeeLinks;
+  const links =
+    user.role === "hr"
+      ? hrLinks
+      : user.role === "unit_head"
+        ? unitHeadLinks
+        : employeeLinks;
 
   const NavLinks = () => (
     <nav className="space-y-1 p-4">

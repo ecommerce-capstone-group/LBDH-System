@@ -37,7 +37,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ component: Component, roles = ["hr", "employee"] }: { component: () => ReactElement; roles?: Array<"hr" | "employee"> }) {
+function ProtectedRoute({ component: Component, roles = ["hr", "employee", "unit_head"] }: { component: () => ReactElement; roles?: Array<"hr" | "employee" | "unit_head"> }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
@@ -86,7 +86,7 @@ function App() {
             <Route path="/attendance">{() => <ProtectedRoute component={Attendance} roles={["hr"]} />}</Route>
             <Route path="/leaves">{() => <ProtectedRoute component={Leaves} roles={["hr"]} />}</Route>
             <Route path="/requests">{() => <ProtectedRoute component={Requests} roles={["hr"]} />}</Route>
-            <Route path="/performance">{() => <ProtectedRoute component={Performance} roles={["hr"]} />}</Route>
+            <Route path="/performance">{() => <ProtectedRoute component={Performance} roles={["hr", "unit_head", "employee"]} />}</Route>
             <Route path="/training">{() => <ProtectedRoute component={Training} roles={["hr"]} />}</Route>
             <Route path="/incidents">{() => <ProtectedRoute component={Incidents} roles={["hr"]} />}</Route>
             <Route path="/onboarding">{() => <ProtectedRoute component={Onboarding} roles={["hr"]} />}</Route>

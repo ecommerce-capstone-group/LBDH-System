@@ -10,6 +10,7 @@ import type { ApprovalStep } from "@workspace/db";
 import { validateAndComputeAppraisal } from "../lib/appraisal-validation";
 import {
   advanceApprovalSteps,
+  assertAppraisalAdvanceAuthorized,
   initialAppraisalWorkflow,
 } from "../lib/approval-workflow";
 
@@ -150,6 +151,8 @@ router.post("/appraisals", async (req, res) => {
 router.post("/appraisals/:id/advance", async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const actorRole =
+      typeof req.body?.actorRole === "string" ? req.body.actorRole : null;
     const bodyRaw = AdvanceAppraisalBody.parse(req.body);
     if (bodyRaw.decision !== "approve" && bodyRaw.decision !== "reject") {
       return res.status(400).json({ error: "Invalid decision (approve | reject)" });
@@ -170,6 +173,13 @@ router.post("/appraisals/:id/advance", async (req, res) => {
     const stepsCopy = [...(existing.steps as ApprovalStep[])];
     const pendingIdx = stepsCopy.findIndex((s) => s.status === "pending");
     const stepName = pendingIdx >= 0 ? stepsCopy[pendingIdx]!.name : "";
+
+    if (stepName) {
+      const authError = assertAppraisalAdvanceAuthorized(stepName, actorRole);
+      if (authError) {
+        return res.status(authError.statusCode).json({ error: authError.error });
+      }
+    }
 
     const result = advanceApprovalSteps(
       stepsCopy,
@@ -197,6 +207,8 @@ router.post("/appraisals/:id/advance", async (req, res) => {
         commentPatch.appraiserComments = note;
       } else if (stepName.includes("Self-Assessment")) {
         commentPatch.employeeSelfAssessment = note;
+      } else if (stepName.includes("Unit Head")) {
+        commentPatch.appraiserComments = note;
       }
     }
 

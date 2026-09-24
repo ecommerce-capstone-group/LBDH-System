@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -41,19 +41,55 @@ export default function Performance() {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<Appraisal | null>(null);
 
-  const { data: appraisals, isLoading } = useListAppraisals(
-    {},
-    { query: { queryKey: getListAppraisalsQueryKey({}) } },
-  );
+  const isHr = user?.role === "hr";
+  const isEmployee = user?.role === "employee";
 
   const { data: employees } = useListEmployees(undefined, {
-    query: { queryKey: getListEmployeesQueryKey() },
+    query: {
+      queryKey: getListEmployeesQueryKey(),
+      enabled: isHr || isEmployee,
+    },
+  });
+  const employeeRows = asArray<Employee>(employees);
+
+  const matchedEmployee = useMemo(() => {
+    if (!user || !isEmployee) return null;
+    return (
+      employeeRows.find(
+        (item) =>
+          item.name === user.name ||
+          item.email?.toLowerCase().includes(user.username),
+      ) ?? null
+    );
+  }, [employeeRows, user, isEmployee]);
+
+  const listParams = matchedEmployee ? { employeeId: matchedEmployee.id } : {};
+
+  const { data: appraisals, isLoading } = useListAppraisals(listParams, {
+    query: {
+      queryKey: getListAppraisalsQueryKey(listParams),
+      enabled: !isEmployee || matchedEmployee != null || employeeRows.length > 0,
+    },
   });
 
   const createAppraisal = useCreateAppraisal();
   const archiveAppraisal = useArchiveAppraisal();
-  const rows = asArray<Appraisal>(appraisals);
-  const employeeRows = asArray<Employee>(employees);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+
+  const rows = useMemo(() => {
+    const all = asArray<Appraisal>(appraisals);
+    if (isEmployee && matchedEmployee) {
+      return all.filter((a) => a.employeeId === matchedEmployee.id);
+    }
+    if (isEmployee && user) {
+      return all.filter(
+        (a) =>
+          a.employeeName === user.name ||
+          a.employeeName.toLowerCase().includes(user.username.toLowerCase()),
+      );
+    }
+    return all;
+  }, [appraisals, isEmployee, matchedEmployee, user]);
 
   const handleCreate = async (
     data: Parameters<typeof createAppraisal.mutateAsync>[0]["data"],
@@ -70,6 +106,43 @@ export default function Performance() {
     }
   };
 
+  const submitAdvance = async (input: {
+    decision: "approve" | "reject";
+    note?: string;
+  }) => {
+    if (!detail || !user) return;
+    setIsAdvancing(true);
+    try {
+      const res = await fetch(`/api/appraisals/${detail.id}/advance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision: input.decision,
+          actor: user.name,
+          note: input.note ?? null,
+          actorRole: user.role,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Could not update approval.",
+        );
+      }
+      setDetail(payload as Appraisal);
+      await queryClient.invalidateQueries({ queryKey: ["/api/appraisals"] });
+      toast.success(
+        input.decision === "approve" ? "Stage approved." : "Stage rejected.",
+      );
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not update approval.");
+    } finally {
+      setIsAdvancing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -78,33 +151,40 @@ export default function Performance() {
             Performance Appraisals
           </h2>
           <p className="text-gray-500">
-            Non-supervisory: appraiser → department head → HR → employee acknowledgement →
-            archive. Supervisory: self-assessment → appraiser → HR → acknowledgement → archive.
+            Self Assessment → Unit Head →{" "}
+            {isHr ? "Department (when applicable) → " : ""}
+            HR. Existing appraisal types and scoring are unchanged. Incidents are shown as
+            supporting information only.
           </p>
         </div>
-        <Button type="button" onClick={() => setOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" /> New Appraisal
-        </Button>
+        {isHr ? (
+          <Button type="button" onClick={() => setOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> New Appraisal
+          </Button>
+        ) : null}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>New appraisal</DialogTitle>
-            <DialogDescription>
-              Complete the official LBDH appraisal form. Template is chosen automatically
-              from the employee&apos;s role.
-            </DialogDescription>
-          </DialogHeader>
-          <AppraisalForm
-            employees={employeeRows}
-            defaultEvaluator={user?.name ?? "HR"}
-            onSubmit={handleCreate}
-            onCancel={() => setOpen(false)}
-            isPending={createAppraisal.isPending}
-          />
-        </DialogContent>
-      </Dialog>
+      {isHr ? (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="sm:max-w-3xl max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>New appraisal</DialogTitle>
+              <DialogDescription>
+                Complete the official LBDH appraisal form. Template is chosen automatically
+                from the employee&apos;s role. Related incidents appear for reference and do
+                not change scores.
+              </DialogDescription>
+            </DialogHeader>
+            <AppraisalForm
+              employees={employeeRows}
+              defaultEvaluator={user?.name ?? "HR"}
+              onSubmit={handleCreate}
+              onCancel={() => setOpen(false)}
+              isPending={createAppraisal.isPending}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <Dialog open={!!detail} onOpenChange={(v) => !v && setDetail(null)}>
         <DialogContent className="sm:max-w-2xl">
@@ -119,8 +199,12 @@ export default function Performance() {
           {detail ? (
             <AppraisalDetailView
               appraisal={detail}
+              currentUserRole={user?.role}
+              currentUserName={user?.name}
+              isAdvancing={isAdvancing}
+              onAdvance={submitAdvance}
               onArchive={
-                detail.status !== "archived"
+                isHr && detail.status !== "archived"
                   ? async (signedFormReference) => {
                       const updated = await archiveAppraisal.mutateAsync({
                         id: detail.id,
@@ -144,7 +228,9 @@ export default function Performance() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Evaluations</CardTitle>
+          <CardTitle>
+            {isEmployee ? "My appraisals" : "Recent Evaluations"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -157,7 +243,7 @@ export default function Performance() {
                   <TableHead>Type</TableHead>
                   <TableHead>Score</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Evaluator</TableHead>
+                  <TableHead>Current step</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -199,7 +285,9 @@ export default function Performance() {
                         <TableCell>
                           <StatusBadge status={appraisal.status} />
                         </TableCell>
-                        <TableCell>{appraisal.evaluator}</TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {appraisal.currentStep}
+                        </TableCell>
                         <TableCell>
                           <Button
                             type="button"

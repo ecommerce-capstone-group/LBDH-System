@@ -19,6 +19,9 @@ export default function Login() {
     if (username === "hr" && password === "hr123") {
       login("hr", "hr", "HR Coordinator");
       setLocation("/dashboard");
+    } else if (username === "unithead" && password === "unit123") {
+      login("unithead", "unit_head", "Unit Head");
+      setLocation("/dashboard");
     } else if (username === "employee" && password === "employee123") {
       login("employee", "employee", "Dr. Jane Doe");
       setLocation("/dashboard");
@@ -58,7 +61,7 @@ export default function Login() {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="hr or employee"
+                    placeholder="hr, unithead, or employee"
                     className="border-gray-300 focus:border-primary focus:ring-primary"
                   />
                 </div>
@@ -85,6 +88,7 @@ export default function Login() {
                 <p className="font-semibold mb-1">Demo Credentials:</p>
                 <ul className="list-disc pl-5 space-y-1">
                   <li><strong>HR:</strong> hr / hr123</li>
+                  <li><strong>Unit Head:</strong> unithead / unit123</li>
                   <li><strong>Employee:</strong> employee / employee123</li>
                 </ul>
               </div>

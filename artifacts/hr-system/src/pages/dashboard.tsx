@@ -122,15 +122,40 @@ export default function Dashboard() {
               </CardHeader>
             </Card>
           </Link>
-          <Link href="/payslip">
+          <Link href="/performance">
             <Card className="hover:border-primary cursor-pointer transition-colors">
               <CardHeader>
-                <CardTitle>Payslips</CardTitle>
-                <p className="text-sm text-gray-500">View and download your latest payslips.</p>
+                <CardTitle>My Appraisals</CardTitle>
+                <p className="text-sm text-gray-500">Complete self-assessment and view appraisal status.</p>
               </CardHeader>
             </Card>
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (user?.role === "unit_head") {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+            Welcome, {user.name}
+          </h2>
+          <p className="text-gray-500">
+            Review and approve performance appraisals awaiting Unit Head approval.
+          </p>
+        </div>
+        <Link href="/performance">
+          <Card className="hover:border-primary cursor-pointer transition-colors max-w-lg">
+            <CardHeader>
+              <CardTitle>Performance Appraisals</CardTitle>
+              <p className="text-sm text-gray-500">
+                Open the queue to approve or reject appraisals at the Unit Head stage.
+              </p>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     );
   }

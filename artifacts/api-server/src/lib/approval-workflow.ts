@@ -1,10 +1,13 @@
 import type { ApprovalStep } from "@workspace/db";
 import {
   appraisalWorkflowSteps,
+  approverRoleForAppraisalStep,
+  type AppraisalApproverRole,
   type AppraisalTemplateType,
 } from "@workspace/db/appraisal-templates";
 
-export { appraisalWorkflowSteps };
+export { appraisalWorkflowSteps, approverRoleForAppraisalStep };
+export type { AppraisalApproverRole };
 
 export function trainingRequestSteps(): ApprovalStep[] {
   return [
@@ -28,8 +31,11 @@ export function initialAppraisalWorkflow(
   }));
   const ts = new Date().toISOString();
 
-  const approve = (index: number, actor: string) => {
-    if (steps[index]) {
+  const approveByName = (nameIncludes: string, actor: string) => {
+    const index = steps.findIndex((s) =>
+      s.name.toLowerCase().includes(nameIncludes.toLowerCase()),
+    );
+    if (index >= 0 && steps[index]) {
       steps[index] = {
         ...steps[index]!,
         status: "approved",
@@ -39,18 +45,15 @@ export function initialAppraisalWorkflow(
     }
   };
 
-  if (templateType === "non_supervisory") {
-    if (opts.hasAppraiserEvaluation) {
-      approve(0, opts.evaluator ?? "Appraiser");
-    }
-  } else {
-    if (opts.employeeSelfAssessment?.trim()) {
-      approve(0, opts.employeeName ?? "Employee");
-    }
-    if (opts.hasAppraiserEvaluation) {
-      const appraiserIdx = 1;
-      if (steps[appraiserIdx]) approve(appraiserIdx, opts.evaluator ?? "Appraiser");
-    }
+  // Self-assessment only auto-completes when text was provided at create time.
+  if (opts.employeeSelfAssessment?.trim()) {
+    approveByName("Self-Assessment", opts.employeeName ?? "Employee");
+  }
+
+  // Scoring/evaluation submitted with the form marks Appraiser Evaluation done.
+  // Unit Head / Department / HR remain pending for their authorized approvers.
+  if (opts.hasAppraiserEvaluation) {
+    approveByName("Appraiser Evaluation", opts.evaluator ?? "Appraiser");
   }
 
   const pendingIdx = steps.findIndex((s) => s.status === "pending");
@@ -134,4 +137,30 @@ export function advanceApprovalSteps(
     status: "pending",
     currentStep: next[pendingIdx]!.name,
   };
+}
+
+export function assertAppraisalAdvanceAuthorized(
+  stepName: string,
+  actorRole: string | null | undefined,
+): { error: string; statusCode: number } | null {
+  const required = approverRoleForAppraisalStep(stepName);
+  if (!required) {
+    return {
+      error: `Unknown appraisal step: ${stepName}`,
+      statusCode: 400,
+    };
+  }
+  if (!actorRole || actorRole !== required) {
+    const label =
+      required === "employee"
+        ? "the employee"
+        : required === "unit_head"
+          ? "a Unit Head"
+          : "HR";
+    return {
+      error: `Only ${label} can approve or reject the "${stepName}" stage.`,
+      statusCode: 403,
+    };
+  }
+  return null;
 }
