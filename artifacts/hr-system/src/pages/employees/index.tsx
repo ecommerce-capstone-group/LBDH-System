@@ -6,7 +6,10 @@ import {
   useListEmployees,
   getListEmployeesQueryKey,
   useCreateEmployee,
+  useListJobs,
+  getListJobsQueryKey,
   type Employee,
+  type Job,
 } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +34,14 @@ import {
   EmployeeCredentialsDialog,
   type EmployeeAccountCredentials,
 } from "@/components/employee-credentials-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { mergeCatalogOptions, SYSTEM_DEPARTMENTS, SYSTEM_ROLES } from "@/lib/staff-catalog";
 
 export default function Employees() {
   const { user } = useAuth();
@@ -52,9 +63,27 @@ export default function Employees() {
     { query: { queryKey: getListEmployeesQueryKey({ search }) } },
   );
 
+  const { data: allEmployees } = useListEmployees(undefined, {
+    query: { queryKey: getListEmployeesQueryKey() },
+  });
+
+  const { data: jobs } = useListJobs(undefined, {
+    query: { queryKey: getListJobsQueryKey() },
+  });
+
   const createEmployee = useCreateEmployee();
 
   const rows = asArray<Employee>(employees);
+  const roleOptions = mergeCatalogOptions(
+    SYSTEM_ROLES,
+    asArray<Employee>(allEmployees).map((employee) => employee.role),
+    asArray<Job>(jobs).map((job) => job.title),
+  );
+  const departmentOptions = mergeCatalogOptions(
+    SYSTEM_DEPARTMENTS,
+    asArray<Employee>(allEmployees).map((employee) => employee.department),
+    asArray<Job>(jobs).map((job) => job.department),
+  );
 
   const resetForm = () => {
     setName("");
@@ -154,11 +183,33 @@ export default function Employees() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="emp-role">Role / title *</Label>
-              <Input id="emp-role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Registered Nurse" />
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger id="emp-role">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="emp-dept">Department *</Label>
-              <Input id="emp-dept" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="ICU" />
+              <Select value={department} onValueChange={setDepartment}>
+                <SelectTrigger id="emp-dept">
+                  <SelectValue placeholder="Select a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departmentOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="emp-email">Email *</Label>
