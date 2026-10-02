@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   Users,
   Briefcase,
-  CalendarCheck,
   CalendarOff,
   FileText,
   TrendingUp,
@@ -16,7 +15,6 @@ import {
   Menu,
   HeartPulse,
   UserCircle,
-  Receipt,
   GraduationCap,
   ShieldAlert,
 } from "lucide-react";
@@ -34,7 +32,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/employees", label: "Employees", icon: Users },
     { href: "/recruitment", label: "Recruitment", icon: Briefcase },
-    { href: "/attendance", label: "Attendance", icon: CalendarCheck },
     { href: "/leaves", label: "Leaves", icon: CalendarOff },
     { href: "/requests", label: "Requests", icon: FileText },
     { href: "/performance", label: "Performance", icon: TrendingUp },
@@ -57,7 +54,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/self-service", label: "Self Service", icon: UserCircle },
     { href: "/performance", label: "My Appraisals", icon: TrendingUp },
-    { href: "/payslip", label: "Payslip", icon: Receipt },
   ];
 
   const links =
