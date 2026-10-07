@@ -37,21 +37,6 @@ import {
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-function toDatetimeLocalValue(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fromDatetimeLocalValue(value: string): string | null {
-  if (!value.trim()) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
-
 export default function OnboardingPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -59,16 +44,11 @@ export default function OnboardingPage() {
   const [hireRecord, setHireRecord] = useState<Onboarding | null>(null);
   const [credentials, setCredentials] = useState<EmployeeAccountCredentials | null>(null);
 
-  const [interviewScheduledAt, setInterviewScheduledAt] = useState("");
   const [startingDate, setStartingDate] = useState("");
-  const [interviewStatus, setInterviewStatus] = useState("pending");
-  const [interviewResult, setInterviewResult] = useState("");
-  const [interviewNotes, setInterviewNotes] = useState("");
   const [medicalStatus, setMedicalStatus] = useState("");
   const [medicalNotes, setMedicalNotes] = useState("");
   const [medicalDocuments, setMedicalDocuments] = useState("");
   const [hrNotes, setHrNotes] = useState("");
-  const [onboardingStatus, setOnboardingStatus] = useState("in_progress");
   const [progressStage, setProgressStage] = useState("Pre-Employment Requirements");
   const [requirements, setRequirements] = useState<PreEmploymentRequirement[]>([]);
 
@@ -95,16 +75,11 @@ export default function OnboardingPage() {
 
   const openEdit = (row: Onboarding) => {
     setEditRecord(row);
-    setInterviewScheduledAt(toDatetimeLocalValue(row.interviewScheduledAt));
     setStartingDate(row.startingDate || "");
-    setInterviewStatus(row.interviewStatus || "pending");
-    setInterviewResult(row.interviewResult || "");
-    setInterviewNotes(row.interviewNotes || "");
     setMedicalStatus(row.medicalStatus || "");
     setMedicalNotes(row.medicalNotes || "");
     setMedicalDocuments(row.medicalDocuments || "");
     setHrNotes(row.hrNotes || "");
-    setOnboardingStatus(row.status || "in_progress");
     setProgressStage(row.progressStage || "Pre-Employment Requirements");
     setRequirements(
       Array.isArray(row.preEmploymentRequirements)
@@ -126,23 +101,29 @@ export default function OnboardingPage() {
 
   const handleSave = async () => {
     if (!editRecord) return;
+    const data: Parameters<typeof updateOnboarding.mutateAsync>[0]["data"] = {
+      progressStage,
+    };
+    if (progressStage === "Pre-Employment Requirements") {
+      data.preEmploymentRequirements = requirements;
+    } else if (
+      progressStage === "Medical / Physical Exam" ||
+      progressStage === "Fit to Work"
+    ) {
+      data.medicalStatus = medicalStatus || null;
+      data.medicalNotes = medicalNotes.trim();
+      if (progressStage === "Medical / Physical Exam") {
+        data.medicalDocuments = medicalDocuments.trim();
+      }
+    } else if (progressStage === "Starting Date") {
+      data.startingDate = startingDate || null;
+    } else if (progressStage === "Onboarding") {
+      data.hrNotes = hrNotes.trim();
+    }
     try {
       await updateOnboarding.mutateAsync({
         id: editRecord.id,
-        data: {
-          progressStage,
-          interviewScheduledAt: fromDatetimeLocalValue(interviewScheduledAt),
-          startingDate: startingDate || null,
-          interviewStatus,
-          interviewResult: interviewResult.trim() || "",
-          interviewNotes: interviewNotes.trim() || "",
-          medicalStatus: medicalStatus || null,
-          medicalNotes: medicalNotes.trim(),
-          medicalDocuments: medicalDocuments.trim(),
-          hrNotes: hrNotes.trim() || "",
-          status: onboardingStatus,
-          preEmploymentRequirements: requirements,
-        },
+        data,
       });
       await queryClient.invalidateQueries({ queryKey: ["/api/onboardings"] });
       await queryClient.invalidateQueries({ queryKey: getListApplicantsQueryKey() });
@@ -196,8 +177,9 @@ export default function OnboardingPage() {
           `Employee created: EMP-${String(result.employee.id).padStart(4, "0")}. Login credentials shown once.`,
         );
       } else {
-        toast.success(
-          `Employee created: EMP-${String(result.employee.id).padStart(4, "0")}`,
+        toast.error(
+          `Employee profile EMP-${String(result.employee.id).padStart(4, "0")} was created, but no login credentials were returned.`,
+          { duration: 10000 },
         );
       }
     } catch (e: unknown) {
@@ -242,9 +224,9 @@ export default function OnboardingPage() {
       <Dialog open={!!editRecord} onOpenChange={(o) => !o && setEditRecord(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Update onboarding</DialogTitle>
+            <DialogTitle>Update onboarding step</DialogTitle>
             <DialogDescription>
-              {editRecord?.applicantName} — {editRecord?.jobTitle}
+              {editRecord?.applicantName} — {editRecord?.jobTitle}. Choose a step and update only its information.
             </DialogDescription>
           </DialogHeader>
           {editRecord && (
@@ -256,161 +238,150 @@ export default function OnboardingPage() {
                     id="ob-progress-stage"
                     className={selectClass}
                     value={progressStage}
-                    onChange={(e) => setProgressStage(e.target.value)}
+                    onChange={(e) => {
+                      const nextStage = e.target.value;
+                      setProgressStage(nextStage);
+                      if (nextStage === "Fit to Work" && medicalStatus === "For Physical Exam") {
+                        setMedicalStatus("");
+                      }
+                    }}
                   >
                     <option value="Pre-Employment Requirements">Pre-Employment Requirements</option>
                     <option value="Medical / Physical Exam">Medical / Physical Exam</option>
                     <option value="Fit to Work">Fit to Work</option>
                     <option value="Starting Date">Starting Date</option>
                     <option value="Onboarding">Onboarding</option>
-                    {["Employee Profile", "Employee Account", "Completed"].includes(progressStage) ? (
-                      <option value={progressStage}>{progressStage}</option>
+                  </select>
+                  <p className="text-xs text-gray-500">
+                    You can select any step and update it directly. Changes are shared with Applicant Monitoring.
+                  </p>
+                </div>
+                {progressStage === "Pre-Employment Requirements" ? (
+                  <div>
+                    <h4 className="mb-2 text-sm font-semibold">Pre-employment requirements</h4>
+                    <p className="mb-3 text-xs text-gray-500">
+                      This checklist is shared with the applicant record in Applicant Monitoring.
+                    </p>
+                    <div className="space-y-2 rounded-md border bg-gray-50 p-3">
+                      {requirements.map((req, i) => (
+                        <div key={`${req.label}-${i}`} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`req-${i}`}
+                            checked={req.done}
+                            onCheckedChange={(v) =>
+                              setRequirements((prev) =>
+                                prev.map((r, idx) => (idx === i ? { ...r, done: v === true } : r)),
+                              )
+                            }
+                          />
+                          <Label htmlFor={`req-${i}`} className="cursor-pointer text-sm font-normal">
+                            {req.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {progressStage === "Medical / Physical Exam" ? (
+                  <div className="space-y-4 rounded-md border p-3">
+                    <h4 className="text-sm font-semibold">Medical / Physical Exam</h4>
+                    <div className="grid gap-2">
+                      <Label htmlFor="ob-medical-status">
+                        Assessment status
+                      </Label>
+                      <select
+                        id="ob-medical-status"
+                        className={selectClass}
+                        value={medicalStatus}
+                        onChange={(event) => setMedicalStatus(event.target.value)}
+                      >
+                        <option value="">Not recorded</option>
+                        <option value="For Physical Exam">For Physical Exam</option>
+                        <option value="Fit to Work">Fit to Work</option>
+                        <option value="Not Fit">Not Fit</option>
+                      </select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="ob-medical-notes">Medical notes / relevant information</Label>
+                      <Textarea
+                        id="ob-medical-notes"
+                        value={medicalNotes}
+                        onChange={(event) => setMedicalNotes(event.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="ob-medical-documents">Document names or secure references</Label>
+                      <Textarea
+                        id="ob-medical-documents"
+                        value={medicalDocuments}
+                        onChange={(event) => setMedicalDocuments(event.target.value)}
+                        rows={2}
+                        placeholder="Record document names or an existing secure reference"
+                      />
+                      <p className="text-xs text-gray-500">
+                        The system records references only; it does not upload or store medical files.
+                      </p>
+                    </div>
+                    {editRecord.medicalUpdatedAt ? (
+                      <p className="text-xs text-gray-500">
+                        Last updated: {new Date(editRecord.medicalUpdatedAt).toLocaleString()}
+                      </p>
                     ) : null}
-                  </select>
-                  <p className="text-xs text-gray-500">
-                    Progress through requirements, medical/physical exam, Fit to Work, starting date, and onboarding in order.
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ob-interview-at">Interview schedule</Label>
-                  <Input
-                    id="ob-interview-at"
-                    type="datetime-local"
-                    value={interviewScheduledAt}
-                    onChange={(e) => setInterviewScheduledAt(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ob-starting-date">Starting date</Label>
-                  <Input
-                    id="ob-starting-date"
-                    type="date"
-                    value={startingDate}
-                    onChange={(e) => setStartingDate(e.target.value)}
-                  />
-                  <p className="text-xs text-gray-500">
-                    Record the starting date after the applicant is Fit to Work. The date is required before onboarding can be approved.
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ob-interview-status">Interview status</Label>
-                  <select
-                    id="ob-interview-status"
-                    className={selectClass}
-                    value={interviewStatus}
-                    onChange={(e) => setInterviewStatus(e.target.value)}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="completed">Completed</option>
-                    <option value="passed">Passed</option>
-                    <option value="failed">Failed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ob-interview-result">Interview result</Label>
-                  <Textarea
-                    id="ob-interview-result"
-                    value={interviewResult}
-                    onChange={(e) => setInterviewResult(e.target.value)}
-                    rows={2}
-                    placeholder="Recommended for hire, needs second interview, …"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ob-interview-notes">Interview notes</Label>
-                  <Textarea
-                    id="ob-interview-notes"
-                    value={interviewNotes}
-                    onChange={(e) => setInterviewNotes(e.target.value)}
-                    rows={2}
-                  />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Pre-employment requirements</h4>
-                  <div className="space-y-2 rounded-md border bg-gray-50 p-3">
-                    {requirements.map((req, i) => (
-                      <div key={`${req.label}-${i}`} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`req-${i}`}
-                          checked={req.done}
-                          onCheckedChange={(v) =>
-                            setRequirements((prev) =>
-                              prev.map((r, idx) => (idx === i ? { ...r, done: v === true } : r)),
-                            )
-                          }
-                        />
-                        <Label htmlFor={`req-${i}`} className="text-sm font-normal cursor-pointer">
-                          {req.label}
-                        </Label>
-                      </div>
-                    ))}
                   </div>
-                </div>
-                <div className="space-y-3 rounded-md border p-3 md:col-span-2">
-                  <h4 className="text-sm font-semibold">Medical / Physical Exam</h4>
-                  <div className="grid gap-2">
-                    <Label htmlFor="ob-medical-status">Assessment status</Label>
-                    <select
-                      id="ob-medical-status"
-                      className={selectClass}
-                      value={medicalStatus}
-                      onChange={(event) => setMedicalStatus(event.target.value)}
-                    >
-                      <option value="">Not recorded</option>
-                      <option value="For Physical Exam">For Physical Exam</option>
-                      <option value="Fit to Work">Fit to Work</option>
-                      <option value="Not Fit">Not Fit</option>
-                    </select>
+                ) : null}
+                {progressStage === "Fit to Work" ? (
+                  <div className="space-y-4 rounded-md border p-3">
+                    <h4 className="text-sm font-semibold">Fit to Work decision</h4>
+                    <div className="grid gap-2">
+                      <Label htmlFor="ob-medical-status">Assessment result</Label>
+                      <select
+                        id="ob-medical-status"
+                        className={selectClass}
+                        value={medicalStatus}
+                        onChange={(event) => setMedicalStatus(event.target.value)}
+                      >
+                        <option value="">Not recorded</option>
+                        <option value="Fit to Work">Fit to Work</option>
+                        <option value="Not Fit">Not Fit</option>
+                      </select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="ob-medical-notes">Decision notes</Label>
+                      <Textarea
+                        id="ob-medical-notes"
+                        value={medicalNotes}
+                        onChange={(event) => setMedicalNotes(event.target.value)}
+                        rows={3}
+                      />
+                    </div>
                   </div>
+                ) : null}
+                {progressStage === "Starting Date" ? (
                   <div className="grid gap-2">
-                    <Label htmlFor="ob-medical-notes">Medical notes / relevant information</Label>
+                    <Label htmlFor="ob-starting-date">Starting date</Label>
+                    <Input
+                      id="ob-starting-date"
+                      type="date"
+                      value={startingDate}
+                      onChange={(e) => setStartingDate(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+                {progressStage === "Onboarding" ? (
+                  <div className="grid gap-2">
+                    <Label htmlFor="ob-hr-notes">Onboarding notes</Label>
                     <Textarea
-                      id="ob-medical-notes"
-                      value={medicalNotes}
-                      onChange={(event) => setMedicalNotes(event.target.value)}
+                      id="ob-hr-notes"
+                      value={hrNotes}
+                      onChange={(e) => setHrNotes(e.target.value)}
                       rows={3}
                     />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="ob-medical-documents">Document names or secure references</Label>
-                    <Textarea
-                      id="ob-medical-documents"
-                      value={medicalDocuments}
-                      onChange={(event) => setMedicalDocuments(event.target.value)}
-                      rows={2}
-                      placeholder="Record document names or an existing secure reference"
-                    />
                     <p className="text-xs text-gray-500">
-                      The system records references only; it does not upload or store medical files.
+                      Once the checklist, Fit to Work decision, and starting date are complete, you can onboard the employee from their record below.
                     </p>
                   </div>
-                  {editRecord.medicalUpdatedAt ? (
-                    <p className="text-xs text-gray-500">
-                      Last updated: {new Date(editRecord.medicalUpdatedAt).toLocaleString()}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ob-status">Onboarding status</Label>
-                  <select
-                    id="ob-status"
-                    className={selectClass}
-                    value={onboardingStatus}
-                    onChange={(e) => setOnboardingStatus(e.target.value)}
-                  >
-                    <option value="in_progress">In progress</option>
-                    <option value="approved" disabled={medicalStatus !== "Fit to Work"}>
-                      Approved (ready to create employee)
-                    </option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="ob-hr-notes">HR notes</Label>
-                  <Textarea id="ob-hr-notes" value={hrNotes} onChange={(e) => setHrNotes(e.target.value)} rows={2} />
-                </div>
+                ) : null}
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setEditRecord(null)}>
@@ -506,6 +477,14 @@ export default function OnboardingPage() {
           rows.map((row) => {
             const reqs = asArray<PreEmploymentRequirement>(row.preEmploymentRequirements);
             const doneCount = reqs.filter((r) => r.done).length;
+            const readyToOnboard =
+              reqs.length > 0 &&
+              reqs.every((requirement) => requirement.done) &&
+              row.medicalStatus === "Fit to Work" &&
+              Boolean(row.startingDate) &&
+              row.progressStage === "Onboarding" &&
+              row.status !== "cancelled" &&
+              !row.employeeId;
             return (
               <Card key={row.id} className={row.status === "hired" || row.status === "cancelled" ? "opacity-80" : ""}>
                 <CardHeader className="pb-3 border-b border-gray-100">
@@ -598,14 +577,22 @@ export default function OnboardingPage() {
                       <div className="mt-4 flex flex-wrap justify-end gap-2">
                         {row.status !== "hired" && row.status !== "cancelled" && (
                           <Button type="button" variant="outline" size="sm" onClick={() => openEdit(row)}>
-                            Update
+                            Update onboarding step
                           </Button>
                         )}
-                        {row.status === "approved" && row.medicalStatus === "Fit to Work" && !row.employeeId && (
+                        {readyToOnboard && (
                           <Button type="button" size="sm" onClick={() => openHire(row)}>
-                            <UserPlus className="mr-2 h-4 w-4" /> Create employee
+                            <UserPlus className="mr-2 h-4 w-4" /> Onboard employee
                           </Button>
                         )}
+                        {row.progressStage === "Onboarding" &&
+                        row.status !== "cancelled" &&
+                        !row.employeeId &&
+                        !readyToOnboard ? (
+                          <p className="self-center text-xs text-amber-700">
+                            Finish all checklist items, record Fit to Work, and set the starting date to onboard.
+                          </p>
+                        ) : null}
                         {row.employeeId != null && (
                           <Button type="button" variant="outline" size="sm" asChild>
                             <Link href={`/employees/${row.employeeId}`}>Open employee</Link>

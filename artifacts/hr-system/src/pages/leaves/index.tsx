@@ -15,6 +15,7 @@ import { asArray } from "@/lib/api-guards";
 import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ReportDateTools } from "@/components/report-date-tools";
 
 export default function Leaves() {
   const { user } = useAuth();
@@ -61,11 +62,27 @@ export default function Leaves() {
         </p>
       </div>
 
-      {isLoading ? (
-        <div>Loading...</div>
-      ) : (
+      <ReportDateTools
+        title="Leave Report"
+        records={leaveRows}
+        dateOf={(leave) => leave.startDate}
+        periodOf={(leave) => ({ start: leave.startDate.slice(0, 10), end: leave.endDate.slice(0, 10) })}
+        columns={[
+          { header: "Employee", value: (leave) => empMap.get(leave.employeeId)?.name ?? `Employee #${leave.employeeId}` },
+          { header: "Leave type", value: (leave) => leave.leaveType },
+          { header: "Leave period", value: (leave) => `${leave.startDate} to ${leave.endDate}` },
+          { header: "Days", value: (leave) => leave.days },
+          { header: "Reason", value: (leave) => leave.reason },
+          { header: "Status", value: (leave) => leave.status },
+          { header: "Current step", value: (leave) => leave.currentStep },
+          { header: "Requested", value: (leave) => leave.createdAt },
+        ]}
+      >
+        {(reportRows) => isLoading ? (
+          <div>Loading...</div>
+        ) : (
         <div className="grid gap-6">
-          {leaveRows.map((leave) => {
+          {reportRows.map((leave) => {
             const info = empMap.get(leave.employeeId);
             return (
               <Card key={leave.id}>
@@ -157,13 +174,14 @@ export default function Leaves() {
               </Card>
             );
           })}
-          {leaveRows.length === 0 && (
+          {reportRows.length === 0 && (
             <div className="text-center py-12 text-gray-500 border rounded-lg bg-white">
-              No leave requests found.
+              No leave requests overlap this period.
             </div>
           )}
         </div>
       )}
+      </ReportDateTools>
     </div>
   );
 }

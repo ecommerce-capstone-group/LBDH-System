@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { Role } from "@/hooks/use-auth";
+import { printReport } from "@/components/report-date-tools";
 
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -209,6 +210,41 @@ export function AppraisalForm({
     },
   );
   const incidentRows = asArray<EmployeeIncident>(incidentsData);
+  const printAppraisal = () => {
+    printReport(
+      "Performance Appraisal",
+      [appraisal],
+      [
+        { header: "Employee", value: (record) => record.employeeName },
+        { header: "Department", value: (record) => record.department },
+        { header: "Position", value: (record) => record.position },
+        { header: "Appraisal type", value: (record) => record.appraisalType },
+        { header: "Appraisal period", value: (record) => record.appraisalPeriod },
+        { header: "Appraisal date", value: (record) => record.appraisalDate },
+        { header: "Evaluator", value: (record) => `${record.evaluator} (${record.evaluatorPosition})` },
+        { header: "Total score", value: (record) => `${record.totalScore}/${maxTotal}` },
+        { header: "Criterion scores", value: (record) => record.criterionScores.map((score) => `${score.label}: ${score.score}`).join("\n") },
+        { header: "Strengths", value: (record) => record.strengths },
+        { header: "Areas for improvement", value: (record) => record.areasForImprovement },
+        { header: "Suggested action plan", value: (record) => record.suggestedActionPlan },
+        { header: "Short-term goals", value: (record) => record.shortTermGoals },
+        { header: "Long-term goals", value: (record) => record.longTermGoals },
+        { header: "Recommendation", value: (record) => record.recommendation },
+        { header: "Employee self-assessment", value: (record) => record.employeeSelfAssessment },
+        { header: "Employee acknowledgement", value: (record) => record.employeeAcknowledgement },
+        { header: "Appraiser comments", value: (record) => record.appraiserComments },
+        { header: "Department head comments", value: (record) => record.departmentHeadComments },
+        { header: "HR comments", value: (record) => record.hrComments },
+        { header: "Signatories", value: (record) => record.signatories.map((signatory) => `${signatory.role}: ${signatory.name}`).join("\n") },
+        { header: "Approval workflow", value: (record) => record.steps.map((step) => `${step.name}: ${step.status}${step.actor ? ` (${step.actor})` : ""}${step.note ? ` — ${step.note}` : ""}`).join("\n") },
+        { header: "Status", value: (record) => record.status },
+        { header: "Current step", value: (record) => record.currentStep },
+        { header: "Signed form reference", value: (record) => record.signedFormReference },
+        { header: "Related incidents", value: () => incidentRows.map((incident) => `${incident.incidentDate} ${incident.policyViolated}: ${incident.violationDescription}`).join("\n") },
+      ],
+      appraisal.appraisalDate || appraisal.appraisalPeriod,
+    );
+  };
 
   useEffect(() => {
     if (!employeeId) return;
@@ -755,6 +791,11 @@ export function AppraisalDetailView({
 
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 text-sm">
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" onClick={printAppraisal}>
+          Print appraisal
+        </Button>
+      </div>
       <div className="grid sm:grid-cols-2 gap-2">
         <p>
           <span className="text-gray-500">Form:</span> {template.label}

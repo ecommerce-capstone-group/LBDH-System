@@ -333,14 +333,6 @@ router.patch("/onboardings/:id", async (req, res) => {
     if ("status" in body && body.status != null) {
       patch.status = asTrimmedString(body.status);
     }
-    const nextStatus = typeof patch.status === "string" ? patch.status : existing.status;
-    if (nextStatus === "approved" && (
-      !startingDate || progressStage !== "Onboarding" || medicalStatus !== "Fit to Work"
-    )) {
-      return res.status(400).json({
-        error: "Complete the Fit to Work and starting-date steps before approving onboarding.",
-      });
-    }
     if ("hrNotes" in body) {
       patch.hrNotes = asTrimmedString(body.hrNotes);
     }
@@ -351,73 +343,6 @@ router.patch("/onboardings/:id", async (req, res) => {
         .from(applicants)
         .where(eq(applicants.id, existing.applicantId));
       if (!applicant) return { error: "Applicant not found" as const };
-      const currentProgressIndex = ONBOARDING_PROGRESS_STAGES.indexOf(
-        existing.progressStage as (typeof ONBOARDING_PROGRESS_STAGES)[number],
-      );
-      const nextProgressIndex = ONBOARDING_PROGRESS_STAGES.indexOf(
-        progressStage as (typeof ONBOARDING_PROGRESS_STAGES)[number],
-      );
-      if (
-        nextProgressIndex < currentProgressIndex ||
-        nextProgressIndex > currentProgressIndex + 1
-      ) {
-        return { error: "Advance onboarding one step at a time." as const };
-      }
-      const currentRequirements = updatedRequirements ?? existing.preEmploymentRequirements;
-      const doneLabels = new Set(currentRequirements.filter((item) => item.done).map((item) => item.label));
-      if (
-        progressStage === "Medical / Physical Exam" &&
-        existing.progressStage !== "Medical / Physical Exam" &&
-        !medicalStatus
-      ) {
-        return { error: "Record the medical assessment status before moving to the medical exam." as const };
-      }
-      if (
-        progressStage === "Medical / Physical Exam" &&
-        !DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS
-          .filter((item) => item.label !== "Medical" && item.label !== "Physical")
-          .every((item) => doneLabels.has(item.label))
-      ) {
-        return { error: "Complete all pre-employment documents before moving to the medical exam." as const };
-      }
-      if (
-        progressStage === "Fit to Work" &&
-        existing.progressStage !== "Fit to Work" &&
-        (
-          !doneLabels.has("Medical") ||
-          !doneLabels.has("Physical") ||
-          medicalStatus !== "Fit to Work"
-        )
-      ) {
-        return { error: "Complete the Medical and Physical checklist items and record Fit to Work before advancing." as const };
-      }
-      if (
-        progressStage === "Starting Date" &&
-        (!startingDate || existing.progressStage !== "Fit to Work" || medicalStatus !== "Fit to Work")
-      ) {
-        return { error: "Set a starting date only after recording Fit to Work." as const };
-      }
-      if (
-        progressStage === "Onboarding" &&
-        (!startingDate || existing.progressStage !== "Starting Date" || medicalStatus !== "Fit to Work")
-      ) {
-        return { error: "Record a starting date before moving to Onboarding." as const };
-      }
-      if (
-        "startingDate" in body &&
-        startingDate &&
-        existing.progressStage !== "Fit to Work" &&
-        existing.progressStage !== "Starting Date" &&
-        progressStage !== "Starting Date"
-      ) {
-        return { error: "Record the Fit to Work step before setting the starting date." as const };
-      }
-      if (
-        nextStatus === "approved" &&
-        progressStage !== "Onboarding"
-      ) {
-        return { error: "Move onboarding to the Onboarding step before approving it." as const };
-      }
       const [updated] = await tx
         .update(onboardings)
         .set(patch)
@@ -465,27 +390,33 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
     if (existing.status === "cancelled") {
       return res.status(400).json({ error: "Cannot hire a cancelled onboarding" });
     }
-    if (existing.status !== "approved" && existing.status !== "hired") {
-      return res.status(400).json({
-        error: "Mark onboarding as approved before creating the employee profile",
-      });
-    }
     if (existing.progressStage !== "Onboarding") {
       return res.status(400).json({
-        error: "Advance onboarding to the Onboarding step before creating an employee profile.",
+        error: "Select the Onboarding step before creating an employee profile.",
       });
+    }
+    const [applicant] = await db
+      .select()
+      .from(applicants)
+      .where(eq(applicants.id, existing.applicantId));
+    if (!applicant) return res.status(404).json({ error: "Applicant not found" });
+    const applicantRequirements = normalizePreEmploymentRequirements(
+      applicant.preEmploymentRequirements,
+    );
+    if (!applicantRequirements.every((requirement) => requirement.done)) {
+      return res.status(400).json({
+        error: "Complete every pre-employment requirement in Applicant Monitoring before onboarding the employee.",
+      });
+    }
+    if (!existing.startingDate) {
+      return res.status(400).json({ error: "Set the employee's starting date before onboarding." });
     }
     if (existing.medicalStatus !== "Fit to Work") {
       return res.status(400).json({
         error: "Record Fit to Work before creating an employee profile.",
       });
     }
-
-    const [applicant] = await db
-      .select()
-      .from(applicants)
-      .where(eq(applicants.id, existing.applicantId));
-    if (!applicant || applicant.stage !== "On-going Pre-Employment") {
+    if (applicant.stage !== "On-going Pre-Employment") {
       return res.status(400).json({
         error: "Applicant must be in ongoing pre-employment before employee creation.",
       });

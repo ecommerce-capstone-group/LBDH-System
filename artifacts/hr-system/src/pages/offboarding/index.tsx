@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UserMinus } from "lucide-react";
 import { asArray } from "@/lib/api-guards";
+import { ReportDateTools } from "@/components/report-date-tools";
 import {
   Dialog,
   DialogContent,
@@ -240,20 +241,40 @@ export default function Offboarding() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-6">
+      <ReportDateTools
+        title="Offboarding and Separation Report"
+        records={rows}
+        dateOf={(record) => record.createdAt}
+        columns={[
+          { header: "Employee ID", value: (record) => `EMP-${String(record.employeeId).padStart(4, "0")}` },
+          { header: "Employee", value: (record) => employeeRows.find((employee) => employee.id === record.employeeId)?.name },
+          { header: "Department", value: (record) => employeeRows.find((employee) => employee.id === record.employeeId)?.department },
+          { header: "Reason", value: (record) => record.reason },
+          { header: "Status", value: (record) => record.status },
+          { header: "HR cleared", value: (record) => record.hrCleared ? "Yes" : "No" },
+          { header: "IT cleared", value: (record) => record.itCleared ? "Yes" : "No" },
+          { header: "Finance cleared", value: (record) => record.financeCleared ? "Yes" : "No" },
+          { header: "Exit interview", value: (record) => record.exitInterview },
+          { header: "Started", value: (record) => record.createdAt },
+        ]}
+      >
+      {(reportRows) => <div className="grid gap-6">
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">Loading offboarding records...</div>
-        ) : rows.length === 0 ? (
+        ) : reportRows.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center text-gray-500">No active offboarding processes.</CardContent>
+            <CardContent className="py-12 text-center text-gray-500">No offboarding records found for this period.</CardContent>
           </Card>
         ) : (
-          rows.map((offboarding) => (
+          reportRows.map((offboarding) => (
             <Card key={offboarding.id} className={offboarding.status === "Completed" ? "opacity-75" : ""}>
               <CardHeader className="pb-3 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">EMP-{offboarding.employeeId.toString().padStart(4, "0")}</CardTitle>
+                    <CardTitle className="text-lg">
+                      {employeeRows.find((employee) => employee.id === offboarding.employeeId)?.name ??
+                        `EMP-${offboarding.employeeId.toString().padStart(4, "0")}`}
+                    </CardTitle>
                     <StatusBadge status={offboarding.status} />
                   </div>
                   <p className="text-sm text-gray-500">Started {new Date(offboarding.createdAt).toLocaleDateString()}</p>
@@ -303,7 +324,8 @@ export default function Offboarding() {
             </Card>
           ))
         )}
-      </div>
+      </div>}
+      </ReportDateTools>
     </div>
   );
 }

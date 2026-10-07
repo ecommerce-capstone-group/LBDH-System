@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle } from "lucide-react";
 import { asArray } from "@/lib/api-guards";
+import { ReportDateTools } from "@/components/report-date-tools";
 import {
   Dialog,
   DialogContent,
@@ -162,59 +163,78 @@ export default function Attendance() {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Records</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Late</TableHead>
-                  <TableHead>Undertime</TableHead>
-                  <TableHead>Overtime</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                      Loading attendance...
-                    </TableCell>
-                  </TableRow>
-                ) : rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                      No records found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-medium text-gray-900">
-                        EMP-{record.employeeId.toString().padStart(4, "0")}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={record.status} />
-                      </TableCell>
-                      <TableCell className={record.lateMinutes > 0 ? "text-red-600" : ""}>{record.lateMinutes} min</TableCell>
-                      <TableCell className={record.undertimeMinutes > 0 ? "text-amber-600" : ""}>{record.undertimeMinutes} min</TableCell>
-                      <TableCell className={record.overtimeMinutes > 0 ? "text-emerald-600 font-medium" : ""}>
-                        {record.overtimeMinutes} min
-                      </TableCell>
+      <ReportDateTools
+        title="Attendance Report"
+        records={rows}
+        dateOf={(record) => record.date}
+        columns={[
+          { header: "Date", value: (record) => record.date },
+          { header: "Employee ID", value: (record) => `EMP-${String(record.employeeId).padStart(4, "0")}` },
+          { header: "Employee", value: (record) => employeeRows.find((employee) => employee.id === record.employeeId)?.name },
+          { header: "Status", value: (record) => record.status },
+          { header: "Late minutes", value: (record) => record.lateMinutes },
+          { header: "Undertime minutes", value: (record) => record.undertimeMinutes },
+          { header: "Overtime minutes", value: (record) => record.overtimeMinutes },
+          { header: "Notes", value: (record) => record.notes },
+        ]}
+      >
+        {(reportRows) => (
+          <Card>
+            <CardHeader>
+              <CardTitle>Attendance Records</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Late</TableHead>
+                      <TableHead>Undertime</TableHead>
+                      <TableHead>Overtime</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                          Loading attendance...
+                        </TableCell>
+                      </TableRow>
+                    ) : reportRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                          No records found for this period.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      reportRows.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                          <TableCell className="font-medium text-gray-900">
+                            {employeeRows.find((employee) => employee.id === record.employeeId)?.name ||
+                              `EMP-${record.employeeId.toString().padStart(4, "0")}`}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={record.status} />
+                          </TableCell>
+                          <TableCell className={record.lateMinutes > 0 ? "text-red-600" : ""}>{record.lateMinutes} min</TableCell>
+                          <TableCell className={record.undertimeMinutes > 0 ? "text-amber-600" : ""}>{record.undertimeMinutes} min</TableCell>
+                          <TableCell className={record.overtimeMinutes > 0 ? "text-emerald-600 font-medium" : ""}>
+                            {record.overtimeMinutes} min
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </ReportDateTools>
     </div>
   );
 }

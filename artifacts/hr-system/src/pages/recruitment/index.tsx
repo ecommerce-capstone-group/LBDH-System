@@ -22,6 +22,7 @@ import { Link } from "wouter";
 import { PlusCircle, ExternalLink, XCircle, Check } from "lucide-react";
 import { asArray } from "@/lib/api-guards";
 import { useAuth } from "@/hooks/use-auth";
+import { ReportDateTools } from "@/components/report-date-tools";
 import {
   Dialog,
   DialogContent,
@@ -237,7 +238,26 @@ export default function Recruitment() {
         </CardContent>
       </Card>
 
-      <Card>
+      <ReportDateTools
+        title="Manpower Request / PRF Report"
+        records={requestRows}
+        dateOf={(request) => request.createdAt}
+        columns={[
+          { header: "Created", value: (request) => request.createdAt },
+          { header: "Position", value: (request) => request.position },
+          { header: "Unit", value: (request) => request.unit },
+          { header: "Department", value: (request) => request.department },
+          { header: "Staff needed", value: (request) => request.staffNeeded },
+          { header: "Vacancy type", value: (request) => request.vacancyType },
+          { header: "Vacancy details", value: (request) => request.vacancyDetails },
+          { header: "Job description", value: (request) => request.jobDescription },
+          { header: "Qualifications", value: (request) => request.qualifications },
+          { header: "Approval status", value: (request) => request.approvals.map((approval) => `${approval.name}: ${approval.status}${approval.actor ? ` (${approval.actor})` : ""}${approval.timestamp ? ` at ${approval.timestamp}` : ""}`).join("\n") },
+          { header: "Status", value: (request) => request.status },
+          { header: "Linked job ID", value: (request) => jobByRequestId.get(request.id)?.id },
+        ]}
+      >
+      {(reportRequestRows) => <Card>
         <CardHeader>
           <CardTitle>Manpower Requests / Personnel Requisition Forms</CardTitle>
           <p className="text-sm text-gray-500">
@@ -250,10 +270,10 @@ export default function Recruitment() {
             <p className="text-sm text-red-700">Could not load manpower requests. Refresh the page and try again.</p>
           ) : isLoadingManpowerRequests ? (
             <p className="text-sm text-gray-500">Loading manpower requests...</p>
-          ) : requestRows.length === 0 ? (
-            <p className="text-sm text-gray-500">No manpower requests yet. Create a PRF to start a recruitment.</p>
+          ) : reportRequestRows.length === 0 ? (
+            <p className="text-sm text-gray-500">No manpower requests for this period.</p>
           ) : (
-            requestRows.map((request) => {
+            reportRequestRows.map((request) => {
               const linkedJob = jobByRequestId.get(request.id);
               return (
                 <div key={request.id} className="rounded-lg border p-4 space-y-4">
@@ -344,7 +364,8 @@ export default function Recruitment() {
             })
           )}
         </CardContent>
-      </Card>
+      </Card>}
+      </ReportDateTools>
 
       <Dialog open={prfOpen} onOpenChange={setPrfOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -502,7 +523,24 @@ export default function Recruitment() {
         </DialogContent>
       </Dialog>
 
-      <Card>
+      <ReportDateTools
+        title="Recruitment Job Vacancy Report"
+        records={rows}
+        dateOf={(job) => job.createdAt}
+        columns={[
+          { header: "Posted", value: (job) => job.createdAt },
+          { header: "Position", value: (job) => job.title },
+          { header: "Unit", value: (job) => job.unit },
+          { header: "Department", value: (job) => job.department },
+          { header: "Staff needed", value: (job) => job.staffNeeded },
+          { header: "Applicants", value: (job) => job.applicantCount },
+          { header: "Hired / onboarded", value: (job) => job.hiredCount },
+          { header: "Remaining vacancy", value: (job) => job.remainingVacancy },
+          { header: "Status", value: (job) => job.status },
+          { header: "Linked PRF ID", value: (job) => job.manpowerRequestId },
+        ]}
+      >
+      {(reportJobRows) => <Card>
         <CardHeader>
           <CardTitle>Job Listings</CardTitle>
         </CardHeader>
@@ -529,14 +567,14 @@ export default function Recruitment() {
                       Loading jobs...
                     </TableCell>
                   </TableRow>
-                ) : rows.length === 0 ? (
+                ) : reportJobRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No jobs posted yet.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((job) => {
+                  reportJobRows.map((job) => {
                     const needed = job.staffNeeded ?? 1;
                     const hired = job.hiredCount ?? 0;
                     const remaining = Math.max(0, needed - hired);
@@ -588,7 +626,8 @@ export default function Recruitment() {
             </Table>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
+      </ReportDateTools>
     </div>
   );
 }

@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { asArray } from "@/lib/api-guards";
+import { ReportDateTools } from "@/components/report-date-tools";
 import { ShieldAlert, PlusCircle } from "lucide-react";
 import {
   Dialog,
@@ -188,98 +189,118 @@ export default function Incidents() {
         </TabsList>
 
         <TabsContent value="records" className="mt-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>All incidents</CardTitle>
-              <select
-                className={`${selectClass} w-auto`}
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All statuses</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="resolved">Resolved</option>
-              </select>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Policy</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                          Loading…
-                        </TableCell>
-                      </TableRow>
-                    ) : incidentRows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                          No incidents recorded.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      incidentRows.map((inc) => {
-                        const emp = empMap.get(inc.employeeId);
-                        return (
-                          <TableRow key={inc.id}>
-                            <TableCell>
-                              {new Date(inc.incidentDate).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <Link
-                                href={`/employees/${inc.employeeId}`}
-                                className="font-medium text-primary hover:underline"
-                              >
-                                {emp?.name ?? `EMP-${inc.employeeId}`}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {inc.policyViolated}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {actionLabels[inc.actionTaken] ?? inc.actionTaken}
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge status={inc.status} />
-                            </TableCell>
-                            <TableCell className="text-right space-x-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openEdit(inc)}
-                              >
-                                Edit
-                              </Button>
-                              {inc.status === "ongoing" ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => markResolved(inc)}
-                                >
-                                  Resolve
-                                </Button>
-                              ) : null}
+          <ReportDateTools
+            title="Incident and Violation Report"
+            records={incidentRows}
+            dateOf={(incident) => incident.incidentDate}
+            columns={[
+              { header: "Incident date", value: (incident) => incident.incidentDate },
+              { header: "Employee", value: (incident) => empMap.get(incident.employeeId)?.name ?? `EMP-${incident.employeeId}` },
+              { header: "Department", value: (incident) => incident.department },
+              { header: "Policy violated", value: (incident) => incident.policyViolated },
+              { header: "Description", value: (incident) => incident.violationDescription },
+              { header: "Action", value: (incident) => actionLabels[incident.actionTaken] ?? incident.actionTaken },
+              { header: "Action details", value: (incident) => incident.actionDetails },
+              { header: "Status", value: (incident) => incident.status },
+              { header: "HR remarks", value: (incident) => incident.hrRemarks },
+              { header: "Approving authority", value: (incident) => incident.approvingAuthority },
+            ]}
+          >
+            {(reportRows) => (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>All incidents</CardTitle>
+                  <select
+                    className={`${selectClass} w-auto`}
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="ongoing">Ongoing</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Employee</TableHead>
+                          <TableHead>Policy</TableHead>
+                          <TableHead>Action</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {isLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                              Loading…
                             </TableCell>
                           </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                        ) : reportRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                              No incidents found for this period.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          reportRows.map((inc) => {
+                            const emp = empMap.get(inc.employeeId);
+                            return (
+                              <TableRow key={inc.id}>
+                                <TableCell>
+                                  {new Date(inc.incidentDate).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                  <Link
+                                    href={`/employees/${inc.employeeId}`}
+                                    className="font-medium text-primary hover:underline"
+                                  >
+                                    {emp?.name ?? `EMP-${inc.employeeId}`}
+                                  </Link>
+                                </TableCell>
+                                <TableCell className="max-w-[200px] truncate">
+                                  {inc.policyViolated}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {actionLabels[inc.actionTaken] ?? inc.actionTaken}
+                                </TableCell>
+                                <TableCell>
+                                  <StatusBadge status={inc.status} />
+                                </TableCell>
+                                <TableCell className="text-right space-x-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openEdit(inc)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  {inc.status === "ongoing" ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => markResolved(inc)}
+                                    >
+                                      Resolve
+                                    </Button>
+                                  ) : null}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </ReportDateTools>
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">

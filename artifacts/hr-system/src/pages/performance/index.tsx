@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { asArray } from "@/lib/api-guards";
+import { ReportDateTools } from "@/components/report-date-tools";
 import {
   Dialog,
   DialogContent,
@@ -211,88 +212,110 @@ export default function Performance() {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEmployee ? "My appraisals" : "Recent Evaluations"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Form</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Current step</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                      Loading appraisals...
-                    </TableCell>
-                  </TableRow>
-                ) : rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                      No performance records found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  rows.map((appraisal) => {
-                    const template = APPRAISAL_TEMPLATES[appraisal.templateType];
-                    const maxTotal = maxPossibleTotal(template);
-                    return (
-                      <TableRow key={appraisal.id}>
-                        <TableCell>
-                          {new Date(appraisal.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {appraisal.employeeName}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {template.label.replace(" Appraisal", "")}
-                        </TableCell>
-                        <TableCell>{appraisal.appraisalType}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 font-medium text-emerald-600">
-                            <Star className="h-4 w-4 fill-emerald-500" />
-                            {appraisal.totalScore}/{maxTotal}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={appraisal.status} />
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {appraisal.currentStep}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDetail(appraisal)}
-                            aria-label="View appraisal"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+      <ReportDateTools
+        title="Performance Appraisal Report"
+        records={rows}
+        dateOf={(appraisal) => appraisal.appraisalDate || appraisal.createdAt}
+        columns={[
+          { header: "Date", value: (appraisal) => appraisal.appraisalDate || appraisal.createdAt },
+          { header: "Employee", value: (appraisal) => appraisal.employeeName },
+          { header: "Department", value: (appraisal) => appraisal.department },
+          { header: "Position", value: (appraisal) => appraisal.position },
+          { header: "Form", value: (appraisal) => APPRAISAL_TEMPLATES[appraisal.templateType].label },
+          { header: "Type", value: (appraisal) => appraisal.appraisalType },
+          { header: "Period", value: (appraisal) => appraisal.appraisalPeriod },
+          { header: "Score", value: (appraisal) => `${appraisal.totalScore}/${maxPossibleTotal(APPRAISAL_TEMPLATES[appraisal.templateType])}` },
+          { header: "Recommendation", value: (appraisal) => appraisal.recommendation },
+          { header: "Status", value: (appraisal) => appraisal.status },
+          { header: "Current step", value: (appraisal) => appraisal.currentStep },
+          { header: "Evaluator", value: (appraisal) => appraisal.evaluator },
+        ]}
+      >
+        {(reportRows) => (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {isEmployee ? "My appraisals" : "Recent Evaluations"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Form</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Current step</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                          Loading appraisals...
                         </TableCell>
                       </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                    ) : reportRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                          No performance records found for this period.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      reportRows.map((appraisal) => {
+                        const template = APPRAISAL_TEMPLATES[appraisal.templateType];
+                        const maxTotal = maxPossibleTotal(template);
+                        return (
+                          <TableRow key={appraisal.id}>
+                            <TableCell>
+                              {new Date(appraisal.appraisalDate || appraisal.createdAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {appraisal.employeeName}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-600">
+                              {template.label.replace(" Appraisal", "")}
+                            </TableCell>
+                            <TableCell>{appraisal.appraisalType}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 font-medium text-emerald-600">
+                                <Star className="h-4 w-4 fill-emerald-500" />
+                                {appraisal.totalScore}/{maxTotal}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={appraisal.status} />
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-600">
+                              {appraisal.currentStep}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDetail(appraisal)}
+                                aria-label="View appraisal"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </ReportDateTools>
     </div>
   );
 }

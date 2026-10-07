@@ -7,6 +7,7 @@ import {
   getListApplicantsQueryKey,
   getListOnboardingsQueryKey,
   useCreateOnboarding,
+  useCreateEmployeeFromOnboarding,
   useGetApplicant,
   useGetJob,
   useListOnboardings,
@@ -35,6 +36,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { asArray, isRecord } from "@/lib/api-guards";
+import {
+  EmployeeCredentialsDialog,
+  type EmployeeAccountCredentials,
+} from "@/components/employee-credentials-dialog";
+import { UserPlus } from "lucide-react";
 
 type InterviewStage =
   | "Initial Interview"
@@ -94,6 +100,7 @@ export default function ApplicantDetail() {
   const [completingInterviewId, setCompletingInterviewId] = useState<number | null>(null);
   const [interviewResult, setInterviewResult] = useState("");
   const [interviewOutcome, setInterviewOutcome] = useState<"Passed" | "Failed" | null>(null);
+  const [credentials, setCredentials] = useState<EmployeeAccountCredentials | null>(null);
   const applicantQuery = useGetApplicant(id, {
     query: { enabled: Number.isFinite(id) && id > 0, queryKey: getGetApplicantQueryKey(id) },
   });
@@ -113,6 +120,7 @@ export default function ApplicantDetail() {
   const updateApplicant = useUpdateApplicant();
   const updateOnboarding = useUpdateOnboarding();
   const createOnboarding = useCreateOnboarding();
+  const createEmployeeFromOnboarding = useCreateEmployeeFromOnboarding();
   const interviewsQuery = useQuery({
     queryKey: ["/api/applicants", id, "interviews"],
     queryFn: () => customFetch<ApplicantInterview[]>(`/api/applicants/${id}/interviews`),
@@ -264,6 +272,50 @@ export default function ApplicantDetail() {
     }
   };
 
+  const onboardEmployee = async () => {
+    if (!onboarding || !applicant || !applicant.email?.trim()) {
+      toast.error("An applicant email is required to create the employee account.");
+      return;
+    }
+    try {
+      const result = await createEmployeeFromOnboarding.mutateAsync({
+        id: onboarding.id,
+        data: {
+          name: applicant.name,
+          role: job?.title || onboarding.jobTitle,
+          department: job?.department || onboarding.jobDepartment,
+          email: applicant.email.trim(),
+          phone: applicant.phone || null,
+          licenseName: null,
+          licenseExpiry: null,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: getListOnboardingsQueryKey({ applicantId: id }) });
+      await queryClient.invalidateQueries({ queryKey: getListOnboardingsQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getListApplicantsQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: getGetApplicantQueryKey(id) });
+      await queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+      if (result.account?.username && result.account.temporaryPassword) {
+        setCredentials({
+          username: result.account.username,
+          temporaryPassword: result.account.temporaryPassword,
+          employeeName: result.employee.name,
+          employeeCode: `EMP-${String(result.employee.id).padStart(4, "0")}`,
+        });
+        toast.success(`Employee created: EMP-${String(result.employee.id).padStart(4, "0")}.`);
+      } else {
+        toast.error(
+          `Employee profile EMP-${String(result.employee.id).padStart(4, "0")} was created, but no login credentials were returned.`,
+          { duration: 10000 },
+        );
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not onboard employee.");
+    }
+  };
+
   if (applicantQuery.isLoading) return <p className="p-6 text-gray-500">Loading applicant details...</p>;
   if (applicantQuery.isError || !applicant || !isRecord(applicant)) {
     return (
@@ -279,11 +331,26 @@ export default function ApplicantDetail() {
   const history = asArray<ApplicantRecruitmentHistory>(applicant.recruitmentHistory);
   const interviewRecords = asArray<ApplicantInterview>(interviewsQuery.data);
   const completedStages = new Set(history.map((entry) => entry.stage));
+  const checklistComplete =
+    requirements.length > 0 && requirements.every((requirement) => requirement.done);
+  const readyToOnboard =
+    !!onboarding &&
+    applicant.stage === "On-going Pre-Employment" &&
+    checklistComplete &&
+    onboarding.medicalStatus === "Fit to Work" &&
+    Boolean(onboarding.startingDate) &&
+    onboarding.progressStage === "Onboarding" &&
+    onboarding.status !== "cancelled" &&
+    !onboarding.employeeId;
   const matches = asArray(applicant.matches);
   const evaluations = isRecord(applicant.aiEvaluation) ? applicant.aiEvaluation : null;
 
   return (
     <div className="space-y-5">
+      <EmployeeCredentialsDialog
+        credentials={credentials}
+        onClose={() => setCredentials(null)}
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button variant="ghost" size="sm" className="mb-2 -ml-3" asChild>
@@ -745,10 +812,38 @@ export default function ApplicantDetail() {
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           {onboarding ? (
             <>
-              <p className="text-sm text-gray-600">
-                Linked onboarding: <strong>{onboarding.progressStage}</strong> · Status: <strong>{onboarding.status}</strong>
-              </p>
-              <Button variant="outline" asChild><Link href="/onboarding">Open onboarding</Link></Button>
+              <div className="space-y-1 text-sm text-gray-600">
+                <p>
+                  Current step: <strong>{onboarding.progressStage}</strong> · Applicant status:{" "}
+                  <strong>{applicant.stage}</strong>
+                </p>
+                <p>
+                  Pre-employment checklist:{" "}
+                  <strong>
+                    {requirements.filter((requirement) => requirement.done).length}/{requirements.length}
+                  </strong>{" "}
+                  · Medical: <strong>{onboarding.medicalStatus || "Not recorded"}</strong> · Starting date:{" "}
+                  <strong>
+                    {onboarding.startingDate
+                      ? new Date(`${onboarding.startingDate}T00:00:00`).toLocaleDateString()
+                      : "Not set"}
+                  </strong>
+                </p>
+                <p>Checklist and medical updates are shared with the Onboarding page.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" asChild><Link href="/onboarding">Open onboarding</Link></Button>
+                {readyToOnboard ? (
+                  <Button
+                    type="button"
+                    disabled={createEmployeeFromOnboarding.isPending}
+                    onClick={onboardEmployee}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    {createEmployeeFromOnboarding.isPending ? "Creating employee..." : "Onboard employee"}
+                  </Button>
+                ) : null}
+              </div>
             </>
           ) : (
             <>

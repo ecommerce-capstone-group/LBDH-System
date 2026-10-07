@@ -17,6 +17,7 @@ import { asArray } from "@/lib/api-guards";
 import { useAuth } from "@/hooks/use-auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ReportDateTools } from "@/components/report-date-tools";
 
 export default function Requests() {
   const { user } = useAuth();
@@ -64,11 +65,27 @@ export default function Requests() {
         </p>
       </div>
 
-      {isLoading ? (
+      <ReportDateTools
+        title="HR Requests and Overtime Report"
+        records={requestRows}
+        dateOf={(request) => request.createdAt}
+        columns={[
+          { header: "Request date", value: (request) => request.createdAt },
+          { header: "Employee", value: (request) => empMap.get(request.employeeId)?.name ?? `Employee #${request.employeeId}` },
+          { header: "Employee ID", value: (request) => `EMP-${String(request.employeeId).padStart(4, "0")}` },
+          { header: "Type", value: (request) => request.type },
+          { header: "Title", value: (request) => request.title },
+          { header: "Details", value: (request) => request.details },
+          { header: "Status", value: (request) => request.status },
+          { header: "Current step", value: (request) => request.currentStep },
+          { header: "Approval workflow", value: (request) => request.steps.map((step) => `${step.name}: ${step.status}${step.actor ? ` (${step.actor})` : ""}${step.note ? ` — ${step.note}` : ""}`).join("\n") },
+        ]}
+      >
+      {(reportRows) => isLoading ? (
         <div>Loading...</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
-          {requestRows.map((req) => {
+          {reportRows.map((req) => {
             const info = empMap.get(req.employeeId);
             return (
               <Card key={req.id} className="flex flex-col">
@@ -163,13 +180,14 @@ export default function Requests() {
               </Card>
             );
           })}
-          {requestRows.length === 0 && (
+          {reportRows.length === 0 && (
             <div className="col-span-2 text-center py-12 text-gray-500 border rounded-lg bg-white">
-              No HR requests found.
+              No HR requests found for this period.
             </div>
           )}
         </div>
       )}
+      </ReportDateTools>
     </div>
   );
 }
