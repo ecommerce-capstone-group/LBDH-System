@@ -37,6 +37,7 @@ import {
   getRecordProgress,
 } from "@/lib/training-progress";
 import { TrainingProgressBar } from "@/components/training-progress-bar";
+import { ReportDateTools } from "@/components/report-date-tools";
 import { PlusCircle, GraduationCap, Users } from "lucide-react";
 import {
   Dialog,
@@ -355,96 +356,149 @@ export default function Training() {
           <TabsTrigger value="records">Training records</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="plans" className="space-y-8 mt-6">
-          {plansLoading ? (
-            <p className="text-gray-500">Loading plans…</p>
-          ) : (
-            (Object.keys(grouped) as TrainingCategory[]).map((cat) => (
-              <section key={cat}>
-                <h3 className="text-lg font-semibold mb-3">{categoryLabels[cat]}</h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {grouped[cat].length === 0 ? (
-                    <p className="text-sm text-gray-500 col-span-2">No items for {yearNum}.</p>
-                  ) : (
-                    grouped[cat].map((p) => <PlanCard key={p.id} plan={p} />)
-                  )}
-                </div>
-              </section>
-            ))
-          )}
+        <TabsContent value="plans" className="mt-6">
+          <ReportDateTools
+            title="Annual Training Plan Report"
+            records={planRows}
+            dateOf={(plan) => plan.plannedDate}
+            dateLabel="Planned training date"
+            columns={[
+              { header: "Year", value: (plan) => plan.year },
+              { header: "Planned date", value: (plan) => formatTrainingDate(plan.plannedDate) },
+              { header: "Category", value: (plan) => categoryLabels[plan.category] },
+              { header: "Training", value: (plan) => plan.title },
+              { header: "Description", value: (plan) => plan.description },
+              { header: "Required hours", value: (plan) => plan.trainingHours },
+              { header: "Department", value: (plan) => plan.department },
+              { header: "Status", value: (plan) => plan.status },
+              { header: "Current approval step", value: (plan) => plan.currentStep },
+            ]}
+          >
+            {() => plansLoading ? (
+              <p className="text-gray-500">Loading plans…</p>
+            ) : (
+              <div className="space-y-8">
+                {(Object.keys(grouped) as TrainingCategory[]).map((cat) => (
+                  <section key={cat}>
+                    <h3 className="mb-3 text-lg font-semibold">{categoryLabels[cat]}</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {grouped[cat].length === 0 ? (
+                        <p className="col-span-2 text-sm text-gray-500">No items for {yearNum}.</p>
+                      ) : (
+                        grouped[cat].map((plan) => <PlanCard key={plan.id} plan={plan} />)
+                      )}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </ReportDateTools>
         </TabsContent>
 
         <TabsContent value="records" className="mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Log date</TableHead>
-                      <TableHead>Scheduled</TableHead>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Training</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Session hrs</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recordsLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                          Loading…
-                        </TableCell>
-                      </TableRow>
-                    ) : recordRows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                          No training records yet.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      recordRows.map((r) => {
-                        const emp = employeeRows.find((e) => e.id === r.employeeId);
-                        const progress = getRecordProgress(r, recordRows, planRows);
-                        const linkedPlan =
-                          r.planId != null
-                            ? planRows.find((p) => p.id === r.planId)
-                            : planRows.find(
-                                (p) =>
-                                  p.title.trim().toLowerCase() ===
-                                  r.trainingName.trim().toLowerCase(),
-                              );
-                        return (
-                          <TableRow key={r.id}>
-                            <TableCell>
-                              {new Date(r.trainingDate).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {formatTrainingDate(linkedPlan?.plannedDate)}
-                            </TableCell>
-                            <TableCell>{emp?.name ?? `EMP-${r.employeeId}`}</TableCell>
-                            <TableCell className="font-medium">{r.trainingName}</TableCell>
-                            <TableCell className="text-sm capitalize">
-                              {r.trainingType.replace(/_/g, " ")}
-                            </TableCell>
-                            <TableCell>{r.trainingHours}</TableCell>
-                            <TableCell>
-                              <TrainingProgressBar progress={progress} />
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge status={r.completionStatus} />
+          <ReportDateTools
+            title="Training Completion Report"
+            records={recordRows}
+            dateOf={(record) => record.trainingDate}
+            dateLabel="Training completion date"
+            columns={[
+              { header: "Log date", value: (record) => record.trainingDate },
+              {
+                header: "Scheduled",
+                value: (record) => {
+                  const plan =
+                    record.planId != null
+                      ? planRows.find((item) => item.id === record.planId)
+                      : planRows.find(
+                          (item) =>
+                            item.title.trim().toLowerCase() ===
+                            record.trainingName.trim().toLowerCase(),
+                        );
+                  return formatTrainingDate(plan?.plannedDate);
+                },
+              },
+              {
+                header: "Employee",
+                value: (record) =>
+                  employeeRows.find((employee) => employee.id === record.employeeId)?.name ??
+                  `EMP-${record.employeeId}`,
+              },
+              { header: "Training", value: (record) => record.trainingName },
+              { header: "Type", value: (record) => record.trainingType.replace(/_/g, " ") },
+              { header: "Session hours", value: (record) => record.trainingHours },
+              {
+                header: "Progress",
+                value: (record) => getRecordProgress(record, recordRows, planRows).label,
+              },
+              { header: "Status", value: (record) => record.completionStatus },
+              { header: "Remarks", value: (record) => record.remarks },
+              { header: "Contract agreement", value: (record) => record.contractAgreement },
+              { header: "File reference", value: (record) => record.fileReference },
+            ]}
+          >
+            {(reportRows) => (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Log date</TableHead>
+                          <TableHead>Scheduled</TableHead>
+                          <TableHead>Employee</TableHead>
+                          <TableHead>Training</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Session hrs</TableHead>
+                          <TableHead>Progress</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recordsLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="py-8 text-center text-gray-500">
+                              Loading…
                             </TableCell>
                           </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                        ) : reportRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="py-8 text-center text-gray-500">
+                              No training records found for this period.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          reportRows.map((record) => {
+                            const employee = employeeRows.find((item) => item.id === record.employeeId);
+                            const progress = getRecordProgress(record, recordRows, planRows);
+                            const plan =
+                              record.planId != null
+                                ? planRows.find((item) => item.id === record.planId)
+                                : planRows.find(
+                                    (item) =>
+                                      item.title.trim().toLowerCase() ===
+                                      record.trainingName.trim().toLowerCase(),
+                                  );
+                            return (
+                              <TableRow key={record.id}>
+                                <TableCell>{new Date(record.trainingDate).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-sm">{formatTrainingDate(plan?.plannedDate)}</TableCell>
+                                <TableCell>{employee?.name ?? `EMP-${record.employeeId}`}</TableCell>
+                                <TableCell className="font-medium">{record.trainingName}</TableCell>
+                                <TableCell className="text-sm capitalize">{record.trainingType.replace(/_/g, " ")}</TableCell>
+                                <TableCell>{record.trainingHours}</TableCell>
+                                <TableCell><TrainingProgressBar progress={progress} /></TableCell>
+                                <TableCell><StatusBadge status={record.completionStatus} /></TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </ReportDateTools>
         </TabsContent>
       </Tabs>
 

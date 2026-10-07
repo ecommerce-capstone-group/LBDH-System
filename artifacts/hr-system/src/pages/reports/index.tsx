@@ -12,6 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import { useMemo } from "react";
 import { asArray } from "@/lib/api-guards";
+import { ReportDateTools } from "@/components/report-date-tools";
 
 export default function Reports() {
   const { data: summary } = useGetDashboardSummary({
@@ -66,47 +67,75 @@ export default function Reports() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Attendance Logs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Employee</TableHead>
-                <TableHead>Employee ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Late (Mins)</TableHead>
-                <TableHead>OT (Mins)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {attendanceRows.slice(0, 20).map((record: any) => {
-                const info = empMap.get(record.employeeId);
-                return (
-                  <TableRow key={record.id}>
-                    <TableCell>{record.date}</TableCell>
-                    <TableCell className="font-medium">{info?.name ?? "—"}</TableCell>
-                    <TableCell>{info?.code ?? `EMP-${String(record.employeeId).padStart(4, "0")}`}</TableCell>
-                    <TableCell>{record.status}</TableCell>
-                    <TableCell>{record.lateMinutes ?? 0}</TableCell>
-                    <TableCell>{record.overtimeMinutes ?? 0}</TableCell>
-                  </TableRow>
-                );
-              })}
-              {attendanceRows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500 py-6">
-                    No attendance records found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <ReportDateTools
+        title="Attendance Summary Report"
+        records={attendanceRows}
+        dateOf={(record) => record.date}
+        columns={[
+          { header: "Date", value: (record) => record.date },
+          { header: "Employee", value: (record) => empMap.get(record.employeeId)?.name ?? "—" },
+          {
+            header: "Employee ID",
+            value: (record) =>
+              empMap.get(record.employeeId)?.code ??
+              `EMP-${String(record.employeeId).padStart(4, "0")}`,
+          },
+          { header: "Status", value: (record) => record.status },
+          { header: "Late (Mins)", value: (record) => record.lateMinutes ?? 0 },
+          { header: "OT (Mins)", value: (record) => record.overtimeMinutes ?? 0 },
+          { header: "Undertime (Mins)", value: (record) => record.undertimeMinutes ?? 0 },
+          { header: "Notes", value: (record) => record.notes ?? "" },
+        ]}
+      >
+        {(reportRows) => (
+          <Card>
+            <CardHeader>
+              <CardTitle>Attendance Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Employee ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Late (Mins)</TableHead>
+                      <TableHead>OT (Mins)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-6 text-center text-gray-500">
+                          No attendance records found for this period.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      reportRows.map((record) => {
+                        const info = empMap.get(record.employeeId);
+                        return (
+                          <TableRow key={record.id}>
+                            <TableCell>{record.date}</TableCell>
+                            <TableCell className="font-medium">{info?.name ?? "—"}</TableCell>
+                            <TableCell>
+                              {info?.code ?? `EMP-${String(record.employeeId).padStart(4, "0")}`}
+                            </TableCell>
+                            <TableCell>{record.status}</TableCell>
+                            <TableCell>{record.lateMinutes ?? 0}</TableCell>
+                            <TableCell>{record.overtimeMinutes ?? 0}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </ReportDateTools>
     </div>
   );
 }
