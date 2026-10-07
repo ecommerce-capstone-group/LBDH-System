@@ -25,6 +25,8 @@ export const APPRAISAL_TYPES = [
   "3rd month",
   "5th month",
   "Other",
+  "Promotion",
+  "Poor Performance",
 ] as const;
 
 export const NON_SUPERVISORY_TEMPLATE: AppraisalTemplate = {
