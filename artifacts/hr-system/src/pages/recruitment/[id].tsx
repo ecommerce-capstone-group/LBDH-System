@@ -122,11 +122,16 @@ export default function JobDetail() {
             {new Date(jobData.createdAt).toLocaleDateString()}
           </p>
           <p className="text-sm text-gray-600 mt-1">
-            {hiredCount}/{staffNeeded} hired
+            {jobData.applicantCount} applicants · {hiredCount}/{staffNeeded} hired/onboarded
             {jobData.status === "active"
               ? ` · ${remaining} position${remaining === 1 ? "" : "s"} available`
               : null}
           </p>
+          {jobData.manpowerRequestId ? (
+            <p className="text-xs text-gray-500 mt-1">
+              Linked PRF #{jobData.manpowerRequestId}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-2 text-sm">
           {jobData.status === "active" ? (

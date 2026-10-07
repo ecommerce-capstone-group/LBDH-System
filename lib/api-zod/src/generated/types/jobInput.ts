@@ -8,6 +8,7 @@
 import type { Requirement } from "./requirement";
 
 export interface JobInput {
+  manpowerRequestId?: number | null;
   title: string;
   unit?: string | null;
   department: string;

@@ -13,6 +13,7 @@ import grievancesRouter from "./grievances";
 import incidentsRouter from "./incidents";
 import offboardingsRouter from "./offboardings";
 import onboardingsRouter from "./onboardings";
+import manpowerRequestsRouter from "./manpower-requests";
 import authRouter from "./auth";
 
 const router: IRouter = Router();
@@ -22,6 +23,7 @@ router.use(authRouter);
 router.use(dashboardRouter);
 router.use(employeesRouter);
 router.use(jobsRouter);
+router.use(manpowerRequestsRouter);
 router.use(applicantsRouter);
 router.use(attendanceRouter);
 router.use(leavesRouter);

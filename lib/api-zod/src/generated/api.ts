@@ -149,6 +149,8 @@ export const listJobsResponseHiredCountMin = 0;
 
 export const ListJobsResponseItem = zod.object({
   id: zod.number(),
+  manpowerRequestId: zod.number().nullish(),
+  applicantCount: zod.number().min(0),
   title: zod.string(),
   unit: zod.string(),
   department: zod.string(),
@@ -169,12 +171,14 @@ export const ListJobsResponseItem = zod.object({
     .number()
     .min(listJobsResponseHiredCountMin)
     .describe("Count of onboardings for this job with status hired (computed)"),
+  remainingVacancy: zod.number().min(0),
   status: zod.string().describe("active | closed | filled"),
   createdAt: zod.string(),
 });
 export const ListJobsResponse = zod.array(ListJobsResponseItem);
 
 export const CreateJobBody = zod.object({
+  manpowerRequestId: zod.number().nullish(),
   title: zod.string(),
   unit: zod.string().nullish(),
   department: zod.string(),
@@ -203,6 +207,8 @@ export const getJobResponseHiredCountMin = 0;
 
 export const GetJobResponse = zod.object({
   id: zod.number(),
+  manpowerRequestId: zod.number().nullish(),
+  applicantCount: zod.number().min(0),
   title: zod.string(),
   unit: zod.string(),
   department: zod.string(),
@@ -223,6 +229,7 @@ export const GetJobResponse = zod.object({
     .number()
     .min(getJobResponseHiredCountMin)
     .describe("Count of onboardings for this job with status hired (computed)"),
+  remainingVacancy: zod.number().min(0),
   status: zod.string().describe("active | closed | filled"),
   createdAt: zod.string(),
 });
@@ -232,6 +239,7 @@ export const UpdateJobParams = zod.object({
 });
 
 export const UpdateJobBody = zod.object({
+  manpowerRequestId: zod.number().nullish(),
   title: zod.string(),
   unit: zod.string().nullish(),
   department: zod.string(),
@@ -256,6 +264,8 @@ export const updateJobResponseHiredCountMin = 0;
 
 export const UpdateJobResponse = zod.object({
   id: zod.number(),
+  manpowerRequestId: zod.number().nullish(),
+  applicantCount: zod.number().min(0),
   title: zod.string(),
   unit: zod.string(),
   department: zod.string(),
@@ -276,6 +286,7 @@ export const UpdateJobResponse = zod.object({
     .number()
     .min(updateJobResponseHiredCountMin)
     .describe("Count of onboardings for this job with status hired (computed)"),
+  remainingVacancy: zod.number().min(0),
   status: zod.string().describe("active | closed | filled"),
   createdAt: zod.string(),
 });

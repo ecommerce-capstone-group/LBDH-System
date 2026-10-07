@@ -80,17 +80,21 @@ export interface Job {
    * @minimum 1
    */
   staffNeeded: number;
+  manpowerRequestId: number | null;
+  applicantCount: number;
   /**
    * Count of onboardings for this job with status hired (computed)
    * @minimum 0
    */
   hiredCount: number;
+  remainingVacancy: number;
   /** active | closed | filled */
   status: string;
   createdAt: string;
 }
 
 export interface JobInput {
+  manpowerRequestId?: number | null;
   title: string;
   unit?: string | null;
   department: string;
@@ -103,6 +107,40 @@ export interface JobInput {
   staffNeeded?: number | null;
   /** active | closed | filled */
   status?: string | null;
+}
+
+export interface ManpowerApprovalStep {
+  name: string;
+  status: "pending" | "approved" | "rejected";
+  actor?: string | null;
+  note?: string | null;
+  timestamp?: string | null;
+}
+
+export interface ManpowerRequest {
+  id: number;
+  position: string;
+  unit: string;
+  department: string;
+  staffNeeded: number;
+  vacancyType: "New Position" | "Replacement";
+  vacancyDetails: string;
+  jobDescription: string;
+  qualifications: string;
+  approvals: ManpowerApprovalStep[];
+  status: "pending" | "approved";
+  createdAt: string;
+}
+
+export interface ManpowerRequestInput {
+  position: string;
+  unit: string;
+  department: string;
+  staffNeeded: number;
+  vacancyType: "New Position" | "Replacement";
+  vacancyDetails: string;
+  jobDescription: string;
+  qualifications: string;
 }
 
 export interface RequirementAnswer {

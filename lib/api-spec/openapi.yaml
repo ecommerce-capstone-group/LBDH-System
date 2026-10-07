@@ -201,6 +201,60 @@ paths:
         "204":
           description: Deleted
 
+  /manpower-requests:
+    get:
+      operationId: listManpowerRequests
+      tags: [manpower-requests]
+      responses:
+        "200":
+          description: Manpower requests and approval checklist
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ManpowerRequest" }
+    post:
+      operationId: createManpowerRequest
+      tags: [manpower-requests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ManpowerRequestInput" }
+      responses:
+        "201":
+          description: Created, pending approvals
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManpowerRequest" }
+
+  /manpower-requests/{id}/approvals:
+    patch:
+      operationId: updateManpowerRequestApproval
+      tags: [manpower-requests]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, approved]
+              properties:
+                name: { type: string, enum: [Department Head, HR Manager, President] }
+                approved: { type: boolean }
+                actor: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Approval checklist updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ManpowerRequest" }
+
   /applicants:
     get:
       operationId: listApplicants
@@ -1001,9 +1055,11 @@ components:
 
     Job:
       type: object
-      required: [id, title, unit, department, description, requirements, staffNeeded, hiredCount, status, createdAt]
+      required: [id, title, unit, department, description, requirements, staffNeeded, applicantCount, hiredCount, remainingVacancy, status, createdAt]
       properties:
         id: { type: integer }
+        manpowerRequestId: { type: integer, nullable: true }
+        applicantCount: { type: integer, minimum: 0 }
         title: { type: string }
         unit: { type: string }
         department: { type: string }
@@ -1019,6 +1075,7 @@ components:
           type: integer
           minimum: 0
           description: Count of onboardings for this job with status hired (computed)
+        remainingVacancy: { type: integer, minimum: 0 }
         status: { type: string, description: "active | closed | filled" }
         createdAt: { type: string }
 
@@ -1026,6 +1083,7 @@ components:
       type: object
       required: [title, department, description, requirements]
       properties:
+        manpowerRequestId: { type: integer, nullable: true, description: Required when creating a job; must reference an approved request }
         title: { type: string }
         unit: { type: string, nullable: true }
         department: { type: string }
@@ -1039,6 +1097,38 @@ components:
           nullable: true
           description: Number of staff needed (defaults to 1)
         status: { type: string, nullable: true, description: "active | closed | filled" }
+
+    ManpowerRequest:
+      type: object
+      required: [id, position, unit, department, staffNeeded, vacancyType, vacancyDetails, jobDescription, qualifications, approvals, status, createdAt]
+      properties:
+        id: { type: integer }
+        position: { type: string }
+        unit: { type: string }
+        department: { type: string }
+        staffNeeded: { type: integer, minimum: 1 }
+        vacancyType: { type: string, enum: [New Position, Replacement] }
+        vacancyDetails: { type: string }
+        jobDescription: { type: string }
+        qualifications: { type: string }
+        approvals:
+          type: array
+          items: { $ref: "#/components/schemas/ApprovalStep" }
+        status: { type: string, enum: [pending, approved] }
+        createdAt: { type: string }
+
+    ManpowerRequestInput:
+      type: object
+      required: [position, unit, department, staffNeeded, vacancyType, vacancyDetails, jobDescription, qualifications]
+      properties:
+        position: { type: string }
+        unit: { type: string }
+        department: { type: string }
+        staffNeeded: { type: integer, minimum: 1 }
+        vacancyType: { type: string, enum: [New Position, Replacement] }
+        vacancyDetails: { type: string }
+        jobDescription: { type: string }
+        qualifications: { type: string }
 
     RequirementAnswer:
       type: object
@@ -1197,7 +1287,7 @@ components:
       type: object
       required: [name, status]
       properties:
-        name: { type: string, description: "Unit Head | Department Head | Auto" }
+        name: { type: string, description: "Unit Head | Department Head | Auto | HR Manager | President" }
         status: { type: string, description: "pending | approved | rejected" }
         actor: { type: string, nullable: true }
         note: { type: string, nullable: true }

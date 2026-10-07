@@ -67,6 +67,29 @@ export type Requirement = {
   max?: number | null;
 };
 
+export const MANPOWER_REQUEST_APPROVALS = [
+  "Department Head",
+  "HR Manager",
+  "President",
+] as const;
+
+export const manpowerRequests = pgTable("manpower_requests", {
+  id: serial("id").primaryKey(),
+  position: text("position").notNull(),
+  unit: text("unit").notNull(),
+  department: text("department").notNull(),
+  staffNeeded: integer("staff_needed").notNull(),
+  vacancyType: text("vacancy_type").notNull(),
+  vacancyDetails: text("vacancy_details").notNull(),
+  jobDescription: text("job_description").notNull(),
+  qualifications: text("qualifications").notNull(),
+  approvals: jsonb("approvals").$type<ApprovalStep[]>().notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -74,6 +97,10 @@ export const jobs = pgTable("jobs", {
   department: text("department").notNull(),
   description: text("description").notNull(),
   requirements: jsonb("requirements").$type<Requirement[]>().notNull(),
+  manpowerRequestId: integer("manpower_request_id").references(
+    () => manpowerRequests.id,
+    { onDelete: "restrict" },
+  ),
   /** How many people HR needs to hire for this listing. */
   staffNeeded: integer("staff_needed").notNull().default(1),
   /** active | closed | filled — closed/filled reject new applications but keep applicant history. */

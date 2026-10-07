@@ -9,6 +9,8 @@ import type { Requirement } from "./requirement";
 
 export interface Job {
   id: number;
+  manpowerRequestId: number | null;
+  applicantCount: number;
   title: string;
   unit: string;
   department: string;
@@ -24,6 +26,7 @@ export interface Job {
    * @minimum 0
    */
   hiredCount: number;
+  remainingVacancy: number;
   /** active | closed | filled */
   status: string;
   createdAt: string;
