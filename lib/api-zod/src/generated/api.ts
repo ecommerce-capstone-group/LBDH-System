@@ -1290,6 +1290,7 @@ export const ListOnboardingsResponseItem = zod.object({
   jobTitle: zod.string(),
   jobDepartment: zod.string(),
   interviewScheduledAt: zod.string().nullish(),
+  startingDate: zod.string().nullish(),
   interviewNotes: zod.string(),
   interviewStatus: zod
     .string()
@@ -1334,6 +1335,7 @@ export const GetOnboardingResponse = zod.object({
   jobTitle: zod.string(),
   jobDepartment: zod.string(),
   interviewScheduledAt: zod.string().nullish(),
+  startingDate: zod.string().nullish(),
   interviewNotes: zod.string(),
   interviewStatus: zod
     .string()
@@ -1358,6 +1360,7 @@ export const UpdateOnboardingParams = zod.object({
 
 export const UpdateOnboardingBody = zod.object({
   interviewScheduledAt: zod.string().nullish(),
+  startingDate: zod.string().nullish(),
   interviewNotes: zod.string().nullish(),
   interviewStatus: zod.string().nullish(),
   interviewResult: zod.string().nullish(),
@@ -1385,6 +1388,7 @@ export const UpdateOnboardingResponse = zod.object({
   jobTitle: zod.string(),
   jobDepartment: zod.string(),
   interviewScheduledAt: zod.string().nullish(),
+  startingDate: zod.string().nullish(),
   interviewNotes: zod.string(),
   interviewStatus: zod
     .string()

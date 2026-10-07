@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import {
   useListOnboardings,
   getListOnboardingsQueryKey,
+  getGetApplicantQueryKey,
+  getListApplicantsQueryKey,
   useUpdateOnboarding,
   useCreateEmployeeFromOnboarding,
   type Onboarding,
@@ -58,6 +60,7 @@ export default function OnboardingPage() {
   const [credentials, setCredentials] = useState<EmployeeAccountCredentials | null>(null);
 
   const [interviewScheduledAt, setInterviewScheduledAt] = useState("");
+  const [startingDate, setStartingDate] = useState("");
   const [interviewStatus, setInterviewStatus] = useState("pending");
   const [interviewResult, setInterviewResult] = useState("");
   const [interviewNotes, setInterviewNotes] = useState("");
@@ -89,6 +92,7 @@ export default function OnboardingPage() {
   const openEdit = (row: Onboarding) => {
     setEditRecord(row);
     setInterviewScheduledAt(toDatetimeLocalValue(row.interviewScheduledAt));
+    setStartingDate(row.startingDate || "");
     setInterviewStatus(row.interviewStatus || "pending");
     setInterviewResult(row.interviewResult || "");
     setInterviewNotes(row.interviewNotes || "");
@@ -119,6 +123,7 @@ export default function OnboardingPage() {
         id: editRecord.id,
         data: {
           interviewScheduledAt: fromDatetimeLocalValue(interviewScheduledAt),
+          startingDate: startingDate || null,
           interviewStatus,
           interviewResult: interviewResult.trim() || "",
           interviewNotes: interviewNotes.trim() || "",
@@ -128,6 +133,10 @@ export default function OnboardingPage() {
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["/api/onboardings"] });
+      await queryClient.invalidateQueries({ queryKey: getListApplicantsQueryKey() });
+      await queryClient.invalidateQueries({
+        queryKey: getGetApplicantQueryKey(editRecord.applicantId),
+      });
       toast.success("Onboarding updated.");
       setEditRecord(null);
     } catch (e: unknown) {
@@ -233,6 +242,18 @@ export default function OnboardingPage() {
                     value={interviewScheduledAt}
                     onChange={(e) => setInterviewScheduledAt(e.target.value)}
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="ob-starting-date">Starting date</Label>
+                  <Input
+                    id="ob-starting-date"
+                    type="date"
+                    value={startingDate}
+                    onChange={(e) => setStartingDate(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Record the starting date after the applicant is Fit to Work. The date is required before onboarding can be approved.
+                  </p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="ob-interview-status">Interview status</Label>
@@ -395,8 +416,7 @@ export default function OnboardingPage() {
         ) : rows.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-gray-500">
-              No onboarding records yet. Open a job in Recruitment and click{" "}
-              <span className="font-medium">Start onboarding</span> on the chosen applicant.
+              No onboarding records yet. Set the applicant status to Accepted Offer in Applicant Monitoring, then start pre-employment requirements.
             </CardContent>
           </Card>
         ) : (
@@ -418,6 +438,9 @@ export default function OnboardingPage() {
                   <p className="text-sm text-gray-600 mt-1">
                     {row.jobTitle} · {row.jobDepartment} · Applicant #{row.applicantId} · Job #{row.jobId}
                     {row.employeeId != null ? ` · EMP-${String(row.employeeId).padStart(4, "0")}` : ""}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Starting date: {row.startingDate ? new Date(`${row.startingDate}T00:00:00`).toLocaleDateString() : "Not set"}
                   </p>
                 </CardHeader>
                 <CardContent className="pt-6">

@@ -22,6 +22,13 @@ const router: IRouter = Router();
 
 const GEMINI_DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const validStages = new Set<string>(APPLICANT_RECRUITMENT_STAGES);
+const systemManagedStages = new Set([
+  "Starting Date",
+  "Onboarding",
+  "Employee Profile Created",
+  "Employee Account Created",
+  "Onboarded",
+]);
 const requirementLabels = new Set(DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((item) => item.label));
 
 let monitoringSchemaReady: Promise<void> | null = null;
@@ -35,6 +42,7 @@ export function ensureApplicantMonitoringSchema(): Promise<void> {
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS stage text NOT NULL DEFAULT 'For Initial Interview';
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS stage_updated_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS pre_employment_requirements jsonb NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE onboardings ADD COLUMN IF NOT EXISTS starting_date date;
         CREATE TABLE IF NOT EXISTS applicant_recruitment_history (
           id serial PRIMARY KEY,
           applicant_id integer NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
@@ -42,6 +50,29 @@ export function ensureApplicantMonitoringSchema(): Promise<void> {
           stage text NOT NULL,
           changed_at timestamptz NOT NULL DEFAULT now()
         );
+        UPDATE applicants a
+        SET stage = CASE
+          WHEN (
+            SELECT h.previous_stage
+            FROM applicant_recruitment_history h
+            WHERE h.applicant_id = a.id AND h.stage = 'Not Passed'
+            ORDER BY h.changed_at DESC, h.id DESC
+            LIMIT 1
+          ) = 'For Final Interview' THEN 'Not Passed - Final Interview'
+          ELSE 'Not Passed - Initial Interview'
+        END
+        WHERE a.stage = 'Not Passed';
+        UPDATE applicant_recruitment_history
+        SET stage = CASE
+          WHEN previous_stage = 'For Final Interview' THEN 'Not Passed - Final Interview'
+          ELSE 'Not Passed - Initial Interview'
+        END
+        WHERE stage = 'Not Passed';
+        UPDATE applicants SET stage = 'Not Passed - Medical/Physical Exam'
+        WHERE stage = 'Not Fit';
+        UPDATE applicant_recruitment_history
+        SET stage = 'Not Passed - Medical/Physical Exam'
+        WHERE stage = 'Not Fit';
         UPDATE applicants
         SET stage_updated_at = created_at
         WHERE stage = 'For Initial Interview'
@@ -403,6 +434,11 @@ router.patch("/applicants/:id", async (req, res) => {
     }
     if (body.stage !== undefined && !validStages.has(body.stage)) {
       return res.status(400).json({ error: "Invalid recruitment stage" });
+    }
+    if (body.stage !== undefined && systemManagedStages.has(body.stage)) {
+      return res.status(400).json({
+        error: "This recruitment stage is recorded automatically by the onboarding workflow.",
+      });
     }
     const requirements =
       body.preEmploymentRequirements === undefined

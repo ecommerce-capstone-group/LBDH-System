@@ -106,16 +106,23 @@ export type ApplicantAiEvaluation = {
 
 export const APPLICANT_RECRUITMENT_STAGES = [
   "For Initial Interview",
+  "Passed Initial Interview",
+  "Not Passed - Initial Interview",
   "For Final Interview",
+  "Passed Final Interview",
+  "Not Passed - Final Interview",
   "For Job Offer",
   "Accepted Offer",
   "Declined Offer",
   "Ongoing Pre-Employment Requirements",
   "For Physical Exam",
   "Fit to Work",
-  "Not Fit",
+  "Starting Date",
+  "Onboarding",
+  "Employee Profile Created",
+  "Employee Account Created",
   "Onboarded",
-  "Not Passed",
+  "Not Passed - Medical/Physical Exam",
   "Withdraw Application",
   "No Show",
 ] as const;
@@ -423,6 +430,7 @@ export const onboardings = pgTable("onboardings", {
   interviewScheduledAt: timestamp("interview_scheduled_at", {
     withTimezone: true,
   }),
+  startingDate: date("starting_date"),
   interviewNotes: text("interview_notes").notNull().default(""),
   /** pending | scheduled | completed | passed | failed | cancelled */
   interviewStatus: text("interview_status").notNull().default("pending"),

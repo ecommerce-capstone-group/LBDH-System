@@ -636,6 +636,7 @@ export interface Onboarding {
   jobTitle: string;
   jobDepartment: string;
   interviewScheduledAt?: string | null;
+  startingDate?: string | null;
   interviewNotes: string;
   /** pending | scheduled | completed | passed | failed | cancelled */
   interviewStatus: string;
@@ -657,6 +658,7 @@ export interface OnboardingInput {
 
 export interface OnboardingUpdate {
   interviewScheduledAt?: string | null;
+  startingDate?: string | null;
   interviewNotes?: string | null;
   interviewStatus?: string | null;
   interviewResult?: string | null;

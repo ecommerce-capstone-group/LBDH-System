@@ -34,19 +34,33 @@ import { asArray, isRecord } from "@/lib/api-guards";
 
 const recruitmentStages = [
   "For Initial Interview",
+  "Passed Initial Interview",
+  "Not Passed - Initial Interview",
   "For Final Interview",
+  "Passed Final Interview",
+  "Not Passed - Final Interview",
   "For Job Offer",
   "Accepted Offer",
   "Declined Offer",
   "Ongoing Pre-Employment Requirements",
   "For Physical Exam",
   "Fit to Work",
-  "Not Fit",
+  "Starting Date",
+  "Onboarding",
+  "Employee Profile Created",
+  "Employee Account Created",
   "Onboarded",
-  "Not Passed",
+  "Not Passed - Medical/Physical Exam",
   "Withdraw Application",
   "No Show",
 ] as const;
+const systemManagedStages = new Set([
+  "Starting Date",
+  "Onboarding",
+  "Employee Profile Created",
+  "Employee Account Created",
+  "Onboarded",
+]);
 
 function Section({ title, children, open = false }: { title: string; children: React.ReactNode; open?: boolean }) {
   return (
@@ -175,7 +189,7 @@ export default function ApplicantDetail() {
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
               <SelectContent>
-                {recruitmentStages.map((stage) => (
+                {recruitmentStages.filter((stage) => !systemManagedStages.has(stage)).map((stage) => (
                   <SelectItem key={stage} value={stage}>{stage}</SelectItem>
                 ))}
               </SelectContent>
@@ -291,10 +305,16 @@ export default function ApplicantDetail() {
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-600">No onboarding record has been started for this applicant.</p>
-              <Button type="button" disabled={createOnboarding.isPending} onClick={startOnboarding}>
-                {createOnboarding.isPending ? "Starting..." : "Start onboarding"}
-              </Button>
+              <p className="text-sm text-gray-600">
+                {applicant.stage === "Accepted Offer"
+                  ? "The applicant accepted the offer. Start pre-employment requirements to continue."
+                  : "Start onboarding after the applicant has accepted the job offer."}
+              </p>
+              {applicant.stage === "Accepted Offer" ? (
+                <Button type="button" disabled={createOnboarding.isPending} onClick={startOnboarding}>
+                  {createOnboarding.isPending ? "Starting..." : "Start pre-employment requirements"}
+                </Button>
+              ) : null}
             </>
           )}
         </CardContent>

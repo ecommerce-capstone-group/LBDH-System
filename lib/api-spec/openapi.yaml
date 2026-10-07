@@ -1097,7 +1097,7 @@ components:
         skills: { type: string }
         experience: { type: string }
         resume: { type: string }
-        stage: { type: string, enum: [For Initial Interview, For Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Not Fit, Onboarded, Not Passed, Withdraw Application, No Show] }
+        stage: { type: string, enum: [For Initial Interview, Passed Initial Interview, Not Passed - Initial Interview, For Final Interview, Passed Final Interview, Not Passed - Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Starting Date, Onboarding, Employee Profile Created, Employee Account Created, Onboarded, Not Passed - Medical/Physical Exam, Withdraw Application, No Show] }
         stageUpdatedAt: { type: string }
         preEmploymentRequirements:
           type: array
@@ -1145,7 +1145,7 @@ components:
       properties:
         stage:
           type: string
-          enum: [For Initial Interview, For Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Not Fit, Onboarded, Not Passed, Withdraw Application, No Show]
+          enum: [For Initial Interview, Passed Initial Interview, Not Passed - Initial Interview, For Final Interview, Passed Final Interview, Not Passed - Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Starting Date, Onboarding, Employee Profile Created, Employee Account Created, Onboarded, Not Passed - Medical/Physical Exam, Withdraw Application, No Show]
         preEmploymentRequirements:
           type: array
           items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
@@ -1745,6 +1745,7 @@ components:
         jobTitle: { type: string }
         jobDepartment: { type: string }
         interviewScheduledAt: { type: string, nullable: true }
+        startingDate: { type: string, format: date, nullable: true }
         interviewNotes: { type: string }
         interviewStatus: { type: string, description: "pending | scheduled | completed | passed | failed | cancelled" }
         interviewResult: { type: string }
@@ -1769,6 +1770,7 @@ components:
       type: object
       properties:
         interviewScheduledAt: { type: string, nullable: true }
+        startingDate: { type: string, format: date, nullable: true }
         interviewNotes: { type: string, nullable: true }
         interviewStatus: { type: string, nullable: true }
         interviewResult: { type: string, nullable: true }
