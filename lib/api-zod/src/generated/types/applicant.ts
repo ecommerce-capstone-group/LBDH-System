@@ -14,13 +14,26 @@ export interface Applicant {
   name: string;
   email: string;
   phone: string;
+  address: string;
   skills: string;
   experience: string;
   resume: string;
+  stage: string;
+  stageUpdatedAt: string;
+  preEmploymentRequirements: Array<{ label: string; done: boolean; notes?: string | null }>;
+  recruitmentHistory?: ApplicantRecruitmentHistory[];
   totalScore: number;
   matches: RequirementMatch[];
   aiScore?: number | null;
   aiEvaluation?: ApplicantAiEvaluation | null;
   aiUpdatedAt?: string | null;
   createdAt: string;
+}
+
+export interface ApplicantRecruitmentHistory {
+  id: number;
+  applicantId: number;
+  previousStage?: string | null;
+  stage: string;
+  changedAt: string;
 }

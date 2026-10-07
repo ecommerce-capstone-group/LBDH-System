@@ -28,6 +28,21 @@ export const employees = pgTable("employees", {
     .defaultNow(),
 });
 
+export const applicantRecruitmentHistory = pgTable(
+  "applicant_recruitment_history",
+  {
+    id: serial("id").primaryKey(),
+    applicantId: integer("applicant_id")
+      .notNull()
+      .references(() => applicants.id, { onDelete: "cascade" }),
+    previousStage: text("previous_stage"),
+    stage: text("stage").notNull(),
+    changedAt: timestamp("changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
 /** Login accounts linked 1:1 to employee profiles (role = employee). */
 export const employeeAccounts = pgTable("employee_accounts", {
   id: serial("id").primaryKey(),
@@ -53,6 +68,7 @@ export type Requirement = {
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
+  unit: text("unit").notNull().default(""),
   department: text("department").notNull(),
   description: text("description").notNull(),
   requirements: jsonb("requirements").$type<Requirement[]>().notNull(),
@@ -88,6 +104,22 @@ export type ApplicantAiEvaluation = {
   evaluatedAt: string;
 };
 
+export const APPLICANT_RECRUITMENT_STAGES = [
+  "For Initial Interview",
+  "For Final Interview",
+  "For Job Offer",
+  "Accepted Offer",
+  "Declined Offer",
+  "Ongoing Pre-Employment Requirements",
+  "For Physical Exam",
+  "Fit to Work",
+  "Not Fit",
+  "Onboarded",
+  "Not Passed",
+  "Withdraw Application",
+  "No Show",
+] as const;
+
 export const applicants = pgTable("applicants", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id")
@@ -96,9 +128,18 @@ export const applicants = pgTable("applicants", {
   name: text("name").notNull(),
   email: text("email").notNull().default(""),
   phone: text("phone").notNull().default(""),
+  address: text("address").notNull().default(""),
   skills: text("skills").notNull(),
   experience: text("experience").notNull(),
   resume: text("resume").notNull(),
+  stage: text("stage").notNull().default("For Initial Interview"),
+  stageUpdatedAt: timestamp("stage_updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  preEmploymentRequirements: jsonb("pre_employment_requirements")
+    .$type<PreEmploymentRequirement[]>()
+    .notNull()
+    .default([]),
   totalScore: real("total_score").notNull(),
   matches: jsonb("matches").$type<RequirementMatch[]>().notNull(),
   aiScore: real("ai_score"),
@@ -335,14 +376,30 @@ export type PreEmploymentRequirement = {
 };
 
 export const DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS: PreEmploymentRequirement[] = [
-  { label: "Pre-employment medical / PE", done: false },
-  { label: "NBI / police clearance", done: false },
-  { label: "PSA birth certificate", done: false },
-  { label: "Diploma / Transcript of Records", done: false },
-  { label: "PRC license (if applicable)", done: false },
-  { label: "SSS / PhilHealth / Pag-IBIG numbers", done: false },
-  { label: "2x2 ID photos", done: false },
-  { label: "Signed employment contract", done: false },
+  { label: "Birth Certificate", done: false },
+  { label: "Diploma", done: false },
+  { label: "TOR", done: false },
+  { label: "PRC License", done: false },
+  { label: "Board Certification", done: false },
+  { label: "Board Rating", done: false },
+  { label: "NBI Clearance", done: false },
+  { label: "Police Clearance", done: false },
+  { label: "Brgy Clearance", done: false },
+  { label: "Cedula", done: false },
+  { label: "2x2 1x1 pictures", done: false },
+  { label: "COE", done: false },
+  { label: "Training Certificates", done: false },
+  { label: "Vaccination Card", done: false },
+  { label: "Marriage Certificate", done: false },
+  { label: "BC (Children)", done: false },
+  { label: "Solo Parent", done: false },
+  { label: "BPI", done: false },
+  { label: "SSS", done: false },
+  { label: "PAGIBIG", done: false },
+  { label: "PHIC", done: false },
+  { label: "TIN", done: false },
+  { label: "Medical", done: false },
+  { label: "Physical", done: false },
 ];
 
 /** Linked to the original applicant + job; optional employeeId after hire. */

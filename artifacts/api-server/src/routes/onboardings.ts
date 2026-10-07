@@ -3,6 +3,7 @@ import {
   db,
   onboardings,
   applicants,
+  applicantRecruitmentHistory,
   jobs,
   employees,
   DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS,
@@ -10,6 +11,7 @@ import {
 } from "@workspace/db";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { provisionEmployeeAccount } from "../lib/employee-accounts";
+import { ensureApplicantMonitoringSchema } from "./applicants";
 
 const router: IRouter = Router();
 
@@ -44,6 +46,34 @@ function parsePreEmploymentRequirements(value: unknown): PreEmploymentRequiremen
     });
   }
   return out;
+}
+
+function normalizePreEmploymentRequirements(
+  requirements: PreEmploymentRequirement[],
+): PreEmploymentRequirement[] {
+  const legacyLabelTargets: Record<string, string[]> = {
+    "Pre-employment medical / PE": ["Medical", "Physical"],
+    "NBI / police clearance": ["NBI Clearance", "Police Clearance"],
+    "PSA birth certificate": ["Birth Certificate"],
+    "Diploma / Transcript of Records": ["Diploma", "TOR"],
+    "PRC license (if applicable)": ["PRC License"],
+    "SSS / PhilHealth / Pag-IBIG numbers": ["SSS", "PHIC", "PAGIBIG"],
+    "2x2 ID photos": ["2x2 1x1 pictures"],
+  };
+  const doneByLabel = new Map<string, PreEmploymentRequirement>();
+  for (const requirement of requirements) {
+    const targets = legacyLabelTargets[requirement.label] ?? [requirement.label];
+    for (const label of targets) {
+      if (!doneByLabel.has(label) || requirement.done) {
+        doneByLabel.set(label, { ...requirement, label });
+      }
+    }
+  }
+  return DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((requirement) => ({
+    ...requirement,
+    ...(doneByLabel.get(requirement.label) ?? {}),
+    label: requirement.label,
+  }));
 }
 
 router.get("/onboardings", async (req, res) => {
@@ -102,6 +132,7 @@ router.get("/onboardings/:id", async (req, res) => {
 
 router.post("/onboardings", async (req, res) => {
   try {
+    await ensureApplicantMonitoringSchema();
     const body = req.body ?? {};
     const applicantId = Number(body.applicantId);
     if (!Number.isFinite(applicantId)) {
@@ -147,9 +178,10 @@ router.post("/onboardings", async (req, res) => {
         interviewNotes: asTrimmedString(body.interviewNotes),
         interviewStatus: interviewScheduledAt ? "scheduled" : "pending",
         interviewResult: "",
-        preEmploymentRequirements: DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((r) => ({
-          ...r,
-        })),
+        preEmploymentRequirements:
+          applicant.preEmploymentRequirements.length > 0
+            ? applicant.preEmploymentRequirements
+            : DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((r) => ({ ...r })),
         status: "in_progress",
         hrNotes: asTrimmedString(body.hrNotes),
       })
@@ -164,6 +196,7 @@ router.post("/onboardings", async (req, res) => {
 
 router.patch("/onboardings/:id", async (req, res) => {
   try {
+    await ensureApplicantMonitoringSchema();
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
     const body = req.body ?? {};
@@ -177,6 +210,7 @@ router.patch("/onboardings/:id", async (req, res) => {
     const patch: Record<string, unknown> = {
       updatedAt: new Date(),
     };
+    let updatedRequirements: PreEmploymentRequirement[] | null = null;
 
     if ("interviewScheduledAt" in body) {
       patch.interviewScheduledAt = parseOptionalDate(body.interviewScheduledAt);
@@ -195,7 +229,8 @@ router.patch("/onboardings/:id", async (req, res) => {
       if (!parsed) {
         return res.status(400).json({ error: "Invalid preEmploymentRequirements" });
       }
-      patch.preEmploymentRequirements = parsed;
+      updatedRequirements = normalizePreEmploymentRequirements(parsed);
+      patch.preEmploymentRequirements = updatedRequirements;
     }
     if ("status" in body && body.status != null) {
       patch.status = asTrimmedString(body.status);
@@ -204,11 +239,20 @@ router.patch("/onboardings/:id", async (req, res) => {
       patch.hrNotes = asTrimmedString(body.hrNotes);
     }
 
-    const [row] = await db
-      .update(onboardings)
-      .set(patch)
-      .where(eq(onboardings.id, id))
-      .returning();
+    const [row] = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(onboardings)
+        .set(patch)
+        .where(eq(onboardings.id, id))
+        .returning();
+      if (updated && updatedRequirements) {
+        await tx
+          .update(applicants)
+          .set({ preEmploymentRequirements: updatedRequirements })
+          .where(eq(applicants.id, existing.applicantId));
+      }
+      return [updated];
+    });
     res.json(row);
   } catch (err) {
     console.error("update onboarding failed", err);
@@ -218,6 +262,7 @@ router.patch("/onboardings/:id", async (req, res) => {
 
 router.post("/onboardings/:id/create-employee", async (req, res) => {
   try {
+    await ensureApplicantMonitoringSchema();
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
     const body = req.body ?? {};
@@ -293,6 +338,28 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
       })
       .where(eq(onboardings.id, id))
       .returning();
+
+    await db.transaction(async (tx) => {
+      const [currentApplicant] = await tx
+        .select({ id: applicants.id, stage: applicants.stage })
+        .from(applicants)
+        .where(eq(applicants.id, existing.applicantId));
+      if (!currentApplicant || currentApplicant.stage === "Onboarded") return;
+      const changedAt = new Date();
+      const [updatedApplicant] = await tx
+        .update(applicants)
+        .set({ stage: "Onboarded", stageUpdatedAt: changedAt })
+        .where(and(eq(applicants.id, currentApplicant.id), eq(applicants.stage, currentApplicant.stage)))
+        .returning({ id: applicants.id, stage: applicants.stage, stageUpdatedAt: applicants.stageUpdatedAt });
+      if (updatedApplicant) {
+        await tx.insert(applicantRecruitmentHistory).values({
+          applicantId: updatedApplicant.id,
+          previousStage: currentApplicant.stage,
+          stage: updatedApplicant.stage,
+          changedAt: updatedApplicant.stageUpdatedAt,
+        });
+      }
+    });
 
     // Auto-mark job as filled when hired count reaches staff needed (keeps applicants).
     const [job] = await db.select().from(jobs).where(eq(jobs.id, existing.jobId));

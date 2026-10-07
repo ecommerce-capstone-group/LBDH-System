@@ -247,6 +247,20 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Applicant" }
+    patch:
+      operationId: updateApplicant
+      tags: [applicants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicantUpdate" }
+      responses:
+        "200":
+          description: Updated applicant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Applicant" }
     delete:
       operationId: deleteApplicant
       tags: [applicants]
@@ -987,10 +1001,11 @@ components:
 
     Job:
       type: object
-      required: [id, title, department, description, requirements, staffNeeded, hiredCount, status, createdAt]
+      required: [id, title, unit, department, description, requirements, staffNeeded, hiredCount, status, createdAt]
       properties:
         id: { type: integer }
         title: { type: string }
+        unit: { type: string }
         department: { type: string }
         description: { type: string }
         requirements:
@@ -1012,6 +1027,7 @@ components:
       required: [title, department, description, requirements]
       properties:
         title: { type: string }
+        unit: { type: string, nullable: true }
         department: { type: string }
         description: { type: string }
         requirements:
@@ -1070,16 +1086,25 @@ components:
 
     Applicant:
       type: object
-      required: [id, jobId, name, email, phone, skills, experience, resume, totalScore, matches, createdAt]
+      required: [id, jobId, name, email, phone, address, skills, experience, resume, stage, stageUpdatedAt, preEmploymentRequirements, totalScore, matches, createdAt]
       properties:
         id: { type: integer }
         jobId: { type: integer }
         name: { type: string }
         email: { type: string }
         phone: { type: string }
+        address: { type: string }
         skills: { type: string }
         experience: { type: string }
         resume: { type: string }
+        stage: { type: string, enum: [For Initial Interview, For Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Not Fit, Onboarded, Not Passed, Withdraw Application, No Show] }
+        stageUpdatedAt: { type: string }
+        preEmploymentRequirements:
+          type: array
+          items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
+        recruitmentHistory:
+          type: array
+          items: { $ref: "#/components/schemas/ApplicantRecruitmentHistory" }
         totalScore: { type: number }
         matches:
           type: array
@@ -1091,18 +1116,39 @@ components:
 
     ApplicantInput:
       type: object
-      required: [jobId, name, email, phone, skills, experience, resume, answers]
+      required: [jobId, name, email, phone, address, skills, experience, resume, answers]
       properties:
         jobId: { type: integer }
         name: { type: string }
         email: { type: string }
         phone: { type: string }
+        address: { type: string }
         skills: { type: string }
         experience: { type: string }
         resume: { type: string }
         answers:
           type: array
           items: { $ref: "#/components/schemas/RequirementAnswer" }
+
+    ApplicantRecruitmentHistory:
+      type: object
+      required: [id, applicantId, stage, changedAt]
+      properties:
+        id: { type: integer }
+        applicantId: { type: integer }
+        previousStage: { type: string, nullable: true }
+        stage: { type: string }
+        changedAt: { type: string }
+
+    ApplicantUpdate:
+      type: object
+      properties:
+        stage:
+          type: string
+          enum: [For Initial Interview, For Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Not Fit, Onboarded, Not Passed, Withdraw Application, No Show]
+        preEmploymentRequirements:
+          type: array
+          items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
 
     Attendance:
       type: object
@@ -1756,4 +1802,3 @@ components:
             - $ref: "#/components/schemas/EmployeeAccountCredentials"
           nullable: true
           description: One-time credentials shown to HR after account creation
-

@@ -13,6 +13,7 @@ import {
   trainingEnrollments,
   grievances,
   pool,
+  DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS,
 } from "@workspace/db";
 import type {
   Requirement,
@@ -325,34 +326,40 @@ async function run() {
       name: "Patricia Lim",
       email: "patricia.lim@example.com",
       phone: "+63 917 555 0201",
+      address: "Los Baños, Laguna",
       skills: "IV therapy, ventilator management, EKG interpretation",
       experience: "4 years ICU at St. Luke's; 1 year ER",
       resume:
         "BSN, University of the Philippines Manila, 2020. PRC #0123456. Active member of PNA.",
       totalScore: a1.totalScore,
       matches: a1.matches,
+      preEmploymentRequirements: DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((item) => ({ ...item })),
     },
     {
       jobId: nurseJob.id,
       name: "Mark Villanueva",
       email: "mark.villanueva@example.com",
       phone: "+63 917 555 0202",
+      address: "Calamba, Laguna",
       skills: "Bedside care, wound dressing, basic emergency response",
       experience: "2 years ward nurse",
       resume: "BSN, San Beda, 2022. PRC #0987654.",
       totalScore: a2.totalScore,
       matches: a2.matches,
+      preEmploymentRequirements: DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((item) => ({ ...item })),
     },
     {
       jobId: medtechJob.id,
       name: "Sofia Gomez",
       email: "sofia.gomez@example.com",
       phone: "+63 917 555 0203",
+      address: "Los Baños, Laguna",
       skills: "Hematology, urinalysis, phlebotomy, QA",
       experience: "3 years at private hospital lab",
       resume: "BS MedTech, FEU 2021. PRC #5566778.",
       totalScore: a3.totalScore,
       matches: a3.matches,
+      preEmploymentRequirements: DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((item) => ({ ...item })),
     },
   ]);
 

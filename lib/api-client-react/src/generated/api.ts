@@ -19,6 +19,7 @@ import type {
 import type {
   Applicant,
   ApplicantInput,
+  ApplicantUpdate,
   Appraisal,
   AppraisalInput,
   ApprovalAction,
@@ -1371,6 +1372,77 @@ export function useGetApplicant<
   };
 
   return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getUpdateApplicantUrl = (id: number) => {
+  return `/api/applicants/${id}`;
+};
+
+export const updateApplicant = async (
+  id: number,
+  applicantUpdate: ApplicantUpdate,
+  options?: RequestInit,
+): Promise<Applicant> => {
+  return customFetch<Applicant>(getUpdateApplicantUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(applicantUpdate),
+  });
+};
+
+export const getUpdateApplicantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateApplicant>>,
+    TError,
+    { id: number; data: BodyType<ApplicantUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateApplicant>>,
+  TError,
+  { id: number; data: BodyType<ApplicantUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateApplicant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateApplicant>>,
+    { id: number; data: BodyType<ApplicantUpdate> }
+  > = ({ id, data }) => updateApplicant(id, data, requestOptions);
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useUpdateApplicant<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateApplicant>>,
+    TError,
+    { id: number; data: BodyType<ApplicantUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateApplicant>>,
+  TError,
+  { id: number; data: BodyType<ApplicantUpdate> },
+  TContext
+> {
+  return useMutation(getUpdateApplicantMutationOptions(options));
 }
 
 export const getDeleteApplicantUrl = (id: number) => {

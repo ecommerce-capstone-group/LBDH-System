@@ -1,12 +1,100 @@
 import { Router, type IRouter } from "express";
-import { db, applicants, jobs } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
-import { CreateApplicantBody } from "@workspace/api-zod";
-import type { ApplicantAiEvaluation, Requirement, RequirementMatch } from "@workspace/db";
+import {
+  db,
+  applicants,
+  applicantRecruitmentHistory,
+  jobs,
+  onboardings,
+  pool,
+  APPLICANT_RECRUITMENT_STAGES,
+  DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS,
+} from "@workspace/db";
+import { asc, desc, eq } from "drizzle-orm";
+import { CreateApplicantBody, UpdateApplicantBody } from "@workspace/api-zod";
+import type {
+  ApplicantAiEvaluation,
+  PreEmploymentRequirement,
+  Requirement,
+  RequirementMatch,
+} from "@workspace/db";
 
 const router: IRouter = Router();
 
 const GEMINI_DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const validStages = new Set<string>(APPLICANT_RECRUITMENT_STAGES);
+const requirementLabels = new Set(DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((item) => item.label));
+
+let monitoringSchemaReady: Promise<void> | null = null;
+
+export function ensureApplicantMonitoringSchema(): Promise<void> {
+  if (!monitoringSchemaReady) {
+    monitoringSchemaReady = pool
+      .query(`
+        ALTER TABLE jobs ADD COLUMN IF NOT EXISTS unit text NOT NULL DEFAULT '';
+        ALTER TABLE applicants ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
+        ALTER TABLE applicants ADD COLUMN IF NOT EXISTS stage text NOT NULL DEFAULT 'For Initial Interview';
+        ALTER TABLE applicants ADD COLUMN IF NOT EXISTS stage_updated_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE applicants ADD COLUMN IF NOT EXISTS pre_employment_requirements jsonb NOT NULL DEFAULT '[]'::jsonb;
+        CREATE TABLE IF NOT EXISTS applicant_recruitment_history (
+          id serial PRIMARY KEY,
+          applicant_id integer NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
+          previous_stage text,
+          stage text NOT NULL,
+          changed_at timestamptz NOT NULL DEFAULT now()
+        );
+        UPDATE applicants
+        SET stage_updated_at = created_at
+        WHERE stage = 'For Initial Interview'
+          AND NOT EXISTS (
+            SELECT 1 FROM applicant_recruitment_history h WHERE h.applicant_id = applicants.id
+          );
+        INSERT INTO applicant_recruitment_history (applicant_id, previous_stage, stage, changed_at)
+        SELECT a.id, NULL, a.stage, a.stage_updated_at
+        FROM applicants a
+        WHERE NOT EXISTS (
+          SELECT 1 FROM applicant_recruitment_history h WHERE h.applicant_id = a.id
+        );
+      `)
+      .then(async () => {
+        await pool.query(
+          `UPDATE applicants
+           SET pre_employment_requirements = $1::jsonb
+           WHERE pre_employment_requirements = '[]'::jsonb`,
+          [JSON.stringify(DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS)],
+        );
+      })
+      .catch((err) => {
+        monitoringSchemaReady = null;
+        throw err;
+      });
+  }
+  return monitoringSchemaReady;
+}
+
+function parsePreEmploymentRequirements(value: unknown): PreEmploymentRequirement[] | null {
+  if (!Array.isArray(value) || value.length !== requirementLabels.size) return null;
+  const items: PreEmploymentRequirement[] = [];
+  const seen = new Set<string>();
+  for (const valueItem of value) {
+    if (!valueItem || typeof valueItem !== "object") return null;
+    const item = valueItem as Record<string, unknown>;
+    if (
+      typeof item.label !== "string" ||
+      !requirementLabels.has(item.label) ||
+      seen.has(item.label) ||
+      typeof item.done !== "boolean"
+    ) {
+      return null;
+    }
+    seen.add(item.label);
+    items.push({
+      label: item.label,
+      done: item.done,
+      notes: typeof item.notes === "string" ? item.notes : null,
+    });
+  }
+  return seen.size === requirementLabels.size ? items : null;
+}
 
 type GeminiModel = {
   name?: string;
@@ -183,6 +271,7 @@ ${args.resume}
 
 router.get("/applicants", async (req, res) => {
   try {
+    await ensureApplicantMonitoringSchema();
     const raw = req.query.jobId;
     const jobId =
       raw !== undefined && raw !== "" ? Number(raw) : undefined;
@@ -205,14 +294,27 @@ router.get("/applicants", async (req, res) => {
 });
 
 router.get("/applicants/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  const [row] = await db.select().from(applicants).where(eq(applicants.id, id));
-  if (!row) return res.status(404).json({ error: "Not found" });
-  res.json(row);
+  try {
+    await ensureApplicantMonitoringSchema();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+    const [row] = await db.select().from(applicants).where(eq(applicants.id, id));
+    if (!row) return res.status(404).json({ error: "Not found" });
+    const history = await db
+      .select()
+      .from(applicantRecruitmentHistory)
+      .where(eq(applicantRecruitmentHistory.applicantId, id))
+      .orderBy(asc(applicantRecruitmentHistory.changedAt), asc(applicantRecruitmentHistory.id));
+    res.json({ ...row, recruitmentHistory: history });
+  } catch (err) {
+    console.error("get applicant failed", err);
+    res.status(500).json({ error: "Could not load applicant" });
+  }
 });
 
 router.post("/applicants", async (req, res) => {
   try {
+    await ensureApplicantMonitoringSchema();
     const body = CreateApplicantBody.parse(req.body);
     const [job] = await db.select().from(jobs).where(eq(jobs.id, body.jobId));
     if (!job) return res.status(404).json({ error: "Job not found" });
@@ -250,20 +352,33 @@ router.post("/applicants", async (req, res) => {
       return res.status(400).json({ error: "This job is no longer accepting applications" });
     }
 
-    const [row] = await db
-      .insert(applicants)
-      .values({
-        jobId: body.jobId,
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
-        skills: body.skills,
-        experience: body.experience,
-        resume: body.resume,
-        totalScore,
-        matches,
-      })
-      .returning();
+    const [row] = await db.transaction(async (tx) => {
+      const [applicant] = await tx
+        .insert(applicants)
+        .values({
+          jobId: body.jobId,
+          name: body.name,
+          email: body.email,
+          phone: body.phone,
+          address: body.address,
+          skills: body.skills,
+          experience: body.experience,
+          resume: body.resume,
+          stage: "For Initial Interview",
+          stageUpdatedAt: new Date(),
+          preEmploymentRequirements: DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((item) => ({ ...item })),
+          totalScore,
+          matches,
+        })
+        .returning();
+      await tx.insert(applicantRecruitmentHistory).values({
+        applicantId: applicant!.id,
+        previousStage: null,
+        stage: applicant!.stage,
+        changedAt: applicant!.stageUpdatedAt,
+      });
+      return [applicant];
+    });
     res.status(201).json(row);
   } catch (err) {
     console.error("create applicant failed", err);
@@ -277,8 +392,83 @@ router.post("/applicants", async (req, res) => {
   }
 });
 
+router.patch("/applicants/:id", async (req, res) => {
+  try {
+    await ensureApplicantMonitoringSchema();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
+    const body = UpdateApplicantBody.parse(req.body);
+    if (!("stage" in body) && !("preEmploymentRequirements" in body)) {
+      return res.status(400).json({ error: "No applicant changes provided" });
+    }
+    if (body.stage !== undefined && !validStages.has(body.stage)) {
+      return res.status(400).json({ error: "Invalid recruitment stage" });
+    }
+    const requirements =
+      body.preEmploymentRequirements === undefined
+        ? undefined
+        : parsePreEmploymentRequirements(body.preEmploymentRequirements);
+    if (body.preEmploymentRequirements !== undefined && !requirements) {
+      return res.status(400).json({ error: "Invalid pre-employment requirements checklist" });
+    }
+
+    const updated = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(applicants).where(eq(applicants.id, id));
+      if (!existing) return null;
+
+      const changedAt = new Date();
+      const stageChanged = body.stage !== undefined && body.stage !== existing.stage;
+      if (!stageChanged && !requirements) return existing;
+      const patch: Partial<typeof applicants.$inferInsert> = {};
+      if (stageChanged) {
+        patch.stage = body.stage!;
+        patch.stageUpdatedAt = changedAt;
+      }
+      if (requirements) patch.preEmploymentRequirements = requirements;
+
+      const [applicant] = await tx
+        .update(applicants)
+        .set(patch)
+        .where(eq(applicants.id, id))
+        .returning();
+      if (!applicant) return null;
+
+      if (stageChanged) {
+        await tx.insert(applicantRecruitmentHistory).values({
+          applicantId: id,
+          previousStage: existing.stage,
+          stage: body.stage!,
+          changedAt,
+        });
+      }
+      if (requirements) {
+        await tx
+          .update(onboardings)
+          .set({ preEmploymentRequirements: requirements, updatedAt: changedAt })
+          .where(eq(onboardings.applicantId, id));
+      }
+      return applicant;
+    });
+    if (!updated) return res.status(404).json({ error: "Applicant not found" });
+
+    const history = await db
+      .select()
+      .from(applicantRecruitmentHistory)
+      .where(eq(applicantRecruitmentHistory.applicantId, id))
+      .orderBy(asc(applicantRecruitmentHistory.changedAt), asc(applicantRecruitmentHistory.id));
+    res.json({ ...updated, recruitmentHistory: history });
+  } catch (err) {
+    console.error("update applicant failed", err);
+    if (err instanceof Error && err.name === "ZodError") {
+      return res.status(400).json({ error: "Invalid applicant update" });
+    }
+    res.status(500).json({ error: "Could not update applicant" });
+  }
+});
+
 router.post("/applicants/:id/ai-score", async (req, res) => {
   try {
+    await ensureApplicantMonitoringSchema();
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
 

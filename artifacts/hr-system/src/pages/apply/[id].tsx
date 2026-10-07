@@ -61,6 +61,7 @@ export default function ApplyJob() {
           name: String(fd.get("name") ?? "").trim(),
           email: String(fd.get("email") ?? "").trim(),
           phone: String(fd.get("phone") ?? "").trim(),
+          address: String(fd.get("address") ?? "").trim(),
           skills: String(fd.get("skills") ?? "").trim(),
           experience: String(fd.get("experience") ?? "").trim(),
           resume: (resumeText || String(fd.get("resume") ?? "")).trim(),
@@ -197,6 +198,16 @@ export default function ApplyJob() {
                     <Label htmlFor="phone">Phone *</Label>
                     <Input id="phone" name="phone" type="tel" required placeholder="+63 912 345 6789" className="bg-white" />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address *</Label>
+                  <Input
+                    id="address"
+                    name="address"
+                    required
+                    placeholder="Street, barangay, city/municipality, province"
+                    className="bg-white"
+                  />
                 </div>
               </div>
 

@@ -16,6 +16,8 @@ import Employees from "@/pages/employees";
 import EmployeeDetail from "@/pages/employees/[id]";
 import Recruitment from "@/pages/recruitment";
 import JobDetail from "@/pages/recruitment/[id]";
+import ApplicantMonitoring from "@/pages/applicant-monitoring";
+import ApplicantDetail from "@/pages/applicant-monitoring/[id]";
 import ApplyJob from "@/pages/apply/[id]";
 import Careers from "@/pages/careers";
 import Attendance from "@/pages/attendance";
@@ -83,6 +85,8 @@ function App() {
             <Route path="/employees/:id">{() => <ProtectedRoute component={EmployeeDetail} roles={["hr"]} />}</Route>
             <Route path="/recruitment">{() => <ProtectedRoute component={Recruitment} roles={["hr"]} />}</Route>
             <Route path="/recruitment/:id">{() => <ProtectedRoute component={JobDetail} roles={["hr"]} />}</Route>
+            <Route path="/applicant-monitoring">{() => <ProtectedRoute component={ApplicantMonitoring} roles={["hr"]} />}</Route>
+            <Route path="/applicant-monitoring/:id">{() => <ProtectedRoute component={ApplicantDetail} roles={["hr"]} />}</Route>
             <Route path="/attendance">{() => <ProtectedRoute component={Attendance} roles={["hr"]} />}</Route>
             <Route path="/leaves">{() => <ProtectedRoute component={Leaves} roles={["hr", "unit_head"]} />}</Route>
             <Route path="/requests">{() => <ProtectedRoute component={Requests} roles={["hr", "unit_head"]} />}</Route>

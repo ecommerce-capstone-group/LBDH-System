@@ -10,6 +10,7 @@ import type { Requirement } from "./requirement";
 export interface Job {
   id: number;
   title: string;
+  unit: string;
   department: string;
   description: string;
   requirements: Requirement[];

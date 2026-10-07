@@ -118,7 +118,8 @@ export default function JobDetail() {
             <StatusBadge status={jobData.status} />
           </div>
           <p className="text-gray-500">
-            {jobData.department} • Posted {new Date(jobData.createdAt).toLocaleDateString()}
+            {jobData.unit || jobData.department} · {jobData.department} • Posted{" "}
+            {new Date(jobData.createdAt).toLocaleDateString()}
           </p>
           <p className="text-sm text-gray-600 mt-1">
             {hiredCount}/{staffNeeded} hired
@@ -230,7 +231,11 @@ export default function JobDetail() {
                 <div className="flex flex-col lg:flex-row">
                   <div className="p-6 lg:w-2/5 border-b lg:border-b-0 lg:border-r border-gray-100 bg-gray-50/30 space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-bold text-gray-900 text-lg">{applicant.name}</h4>
+                      <h4 className="font-bold text-gray-900 text-lg">
+                        <Link href={`/applicant-monitoring/${applicant.id}`} className="hover:text-primary hover:underline">
+                          {applicant.name}
+                        </Link>
+                      </h4>
                       <span className="text-xs font-mono text-gray-500 shrink-0">ID #{applicant.id}</span>
                     </div>
                     <p className="text-xs text-gray-500">

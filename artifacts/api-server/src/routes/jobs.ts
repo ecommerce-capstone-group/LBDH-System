@@ -14,7 +14,8 @@ function ensureStaffNeededColumn(): Promise<void> {
   if (!staffNeededReady) {
     staffNeededReady = pool
       .query(
-        `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS staff_needed integer NOT NULL DEFAULT 1`,
+        `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS staff_needed integer NOT NULL DEFAULT 1;
+         ALTER TABLE jobs ADD COLUMN IF NOT EXISTS unit text NOT NULL DEFAULT ''`,
       )
       .then(() => undefined)
       .catch((err) => {
@@ -100,6 +101,7 @@ router.post("/jobs", async (req, res) => {
       .insert(jobs)
       .values({
         title: body.title,
+        unit: body.unit?.trim() || body.department.trim(),
         department: body.department,
         description: body.description,
         requirements: body.requirements as Requirement[],
@@ -125,6 +127,9 @@ router.patch("/jobs/:id", async (req, res) => {
       description: body.description,
       requirements: body.requirements as Requirement[],
     };
+    if (typeof body.unit === "string") {
+      patch.unit = body.unit.trim() || body.department.trim();
+    }
     if (body.status) {
       patch.status = body.status;
     }

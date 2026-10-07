@@ -35,6 +35,7 @@ export default function Recruitment() {
   const queryClient = useQueryClient();
   const [postOpen, setPostOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [unit, setUnit] = useState("");
   const [department, setDepartment] = useState("");
   const [description, setDescription] = useState("");
   const [staffNeeded, setStaffNeeded] = useState("1");
@@ -67,6 +68,7 @@ export default function Recruitment() {
       await createJob.mutateAsync({
         data: {
           title: title.trim(),
+          unit: unit.trim() || department.trim(),
           department: department.trim(),
           description: description.trim(),
           requirements: defaultRequirements,
@@ -77,6 +79,7 @@ export default function Recruitment() {
       await invalidateJobs();
       toast.success("Job posted.");
       setTitle("");
+      setUnit("");
       setDepartment("");
       setDescription("");
       setStaffNeeded("1");
@@ -99,6 +102,7 @@ export default function Recruitment() {
         id: job.id,
         data: {
           title: job.title,
+          unit: job.unit,
           department: job.department,
           description: job.description,
           requirements: job.requirements,
@@ -134,6 +138,18 @@ export default function Recruitment() {
         </Button>
       </div>
 
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div>
+            <p className="font-medium text-gray-900">Applicant Monitoring</p>
+            <p className="text-sm text-gray-500">Review every applicant and track recruitment progress.</p>
+          </div>
+          <Button type="button" variant="outline" asChild>
+            <Link href="/applicant-monitoring">Open monitoring</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       <Dialog open={postOpen} onOpenChange={setPostOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -147,6 +163,11 @@ export default function Recruitment() {
             <div className="grid gap-2">
               <Label htmlFor="job-title">Job title *</Label>
               <Input id="job-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Staff Nurse — ICU" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="job-unit">Unit</Label>
+              <Input id="job-unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="ICU" />
+              <p className="text-xs text-gray-500">Defaults to the department when left blank.</p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="job-dept">Department *</Label>

@@ -150,6 +150,7 @@ export const listJobsResponseHiredCountMin = 0;
 export const ListJobsResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
+  unit: zod.string(),
   department: zod.string(),
   description: zod.string(),
   requirements: zod.array(
@@ -175,6 +176,7 @@ export const ListJobsResponse = zod.array(ListJobsResponseItem);
 
 export const CreateJobBody = zod.object({
   title: zod.string(),
+  unit: zod.string().nullish(),
   department: zod.string(),
   description: zod.string(),
   requirements: zod.array(
@@ -202,6 +204,7 @@ export const getJobResponseHiredCountMin = 0;
 export const GetJobResponse = zod.object({
   id: zod.number(),
   title: zod.string(),
+  unit: zod.string(),
   department: zod.string(),
   description: zod.string(),
   requirements: zod.array(
@@ -230,6 +233,7 @@ export const UpdateJobParams = zod.object({
 
 export const UpdateJobBody = zod.object({
   title: zod.string(),
+  unit: zod.string().nullish(),
   department: zod.string(),
   description: zod.string(),
   requirements: zod.array(
@@ -253,6 +257,7 @@ export const updateJobResponseHiredCountMin = 0;
 export const UpdateJobResponse = zod.object({
   id: zod.number(),
   title: zod.string(),
+  unit: zod.string(),
   department: zod.string(),
   description: zod.string(),
   requirements: zod.array(
@@ -289,9 +294,19 @@ export const ListApplicantsResponseItem = zod.object({
   name: zod.string(),
   email: zod.string(),
   phone: zod.string(),
+  address: zod.string(),
   skills: zod.string(),
   experience: zod.string(),
   resume: zod.string(),
+  stage: zod.string(),
+  stageUpdatedAt: zod.string(),
+  preEmploymentRequirements: zod.array(
+    zod.object({
+      label: zod.string(),
+      done: zod.boolean(),
+      notes: zod.string().nullish(),
+    }),
+  ),
   totalScore: zod.number(),
   matches: zod.array(
     zod.object({
@@ -329,6 +344,7 @@ export const CreateApplicantBody = zod.object({
   name: zod.string(),
   email: zod.string(),
   phone: zod.string(),
+  address: zod.string(),
   skills: zod.string(),
   experience: zod.string(),
   resume: zod.string(),
@@ -350,9 +366,28 @@ export const GetApplicantResponse = zod.object({
   name: zod.string(),
   email: zod.string(),
   phone: zod.string(),
+  address: zod.string(),
   skills: zod.string(),
   experience: zod.string(),
   resume: zod.string(),
+  stage: zod.string(),
+  stageUpdatedAt: zod.string(),
+  preEmploymentRequirements: zod.array(
+    zod.object({
+      label: zod.string(),
+      done: zod.boolean(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+  recruitmentHistory: zod.array(
+    zod.object({
+      id: zod.number(),
+      applicantId: zod.number(),
+      previousStage: zod.string().nullish(),
+      stage: zod.string(),
+      changedAt: zod.string(),
+    }),
+  ),
   totalScore: zod.number(),
   matches: zod.array(
     zod.object({
@@ -384,6 +419,23 @@ export const GetApplicantResponse = zod.object({
   createdAt: zod.string(),
 });
 
+export const UpdateApplicantParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateApplicantBody = zod.object({
+  stage: zod.string().optional(),
+  preEmploymentRequirements: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        done: zod.boolean(),
+        notes: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+});
+
 export const DeleteApplicantParams = zod.object({
   id: zod.coerce.number(),
 });
@@ -401,9 +453,19 @@ export const ScoreApplicantAiResponse = zod.object({
   name: zod.string(),
   email: zod.string(),
   phone: zod.string(),
+  address: zod.string(),
   skills: zod.string(),
   experience: zod.string(),
   resume: zod.string(),
+  stage: zod.string(),
+  stageUpdatedAt: zod.string(),
+  preEmploymentRequirements: zod.array(
+    zod.object({
+      label: zod.string(),
+      done: zod.boolean(),
+      notes: zod.string().nullish(),
+    }),
+  ),
   totalScore: zod.number(),
   matches: zod.array(
     zod.object({

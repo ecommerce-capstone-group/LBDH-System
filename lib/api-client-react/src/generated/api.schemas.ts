@@ -71,6 +71,7 @@ export interface Requirement {
 export interface Job {
   id: number;
   title: string;
+  unit: string;
   department: string;
   description: string;
   requirements: Requirement[];
@@ -91,6 +92,7 @@ export interface Job {
 
 export interface JobInput {
   title: string;
+  unit?: string | null;
   department: string;
   description: string;
   requirements: Requirement[];
@@ -139,9 +141,14 @@ export interface Applicant {
   name: string;
   email: string;
   phone: string;
+  address: string;
   skills: string;
   experience: string;
   resume: string;
+  stage: string;
+  stageUpdatedAt: string;
+  preEmploymentRequirements: PreEmploymentRequirement[];
+  recruitmentHistory?: ApplicantRecruitmentHistory[];
   totalScore: number;
   matches: RequirementMatch[];
   aiScore?: number | null;
@@ -155,10 +162,24 @@ export interface ApplicantInput {
   name: string;
   email: string;
   phone: string;
+  address: string;
   skills: string;
   experience: string;
   resume: string;
   answers: RequirementAnswer[];
+}
+
+export interface ApplicantRecruitmentHistory {
+  id: number;
+  applicantId: number;
+  previousStage?: string | null;
+  stage: string;
+  changedAt: string;
+}
+
+export interface ApplicantUpdate {
+  stage?: string;
+  preEmploymentRequirements?: PreEmploymentRequirement[];
 }
 
 export interface Attendance {
