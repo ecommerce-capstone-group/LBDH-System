@@ -11,6 +11,7 @@ import {
   useGetJob,
   useListOnboardings,
   useUpdateApplicant,
+  useUpdateOnboarding,
   customFetch,
 } from "@workspace/api-client-react";
 import type {
@@ -83,6 +84,9 @@ export default function ApplicantDetail() {
   const [selectedStage, setSelectedStage] = useState<string>("");
   const [selectedOutcome, setSelectedOutcome] = useState<string | null>(null);
   const [requirements, setRequirements] = useState<PreEmploymentRequirement[]>([]);
+  const [medicalStatus, setMedicalStatus] = useState("");
+  const [medicalNotes, setMedicalNotes] = useState("");
+  const [medicalDocuments, setMedicalDocuments] = useState("");
   const [interviewStage, setInterviewStage] = useState<InterviewStage>("Initial Interview");
   const [interviewScheduledAt, setInterviewScheduledAt] = useState("");
   const [interviewInterviewer, setInterviewInterviewer] = useState("");
@@ -107,6 +111,7 @@ export default function ApplicantDetail() {
   );
   const onboarding = asArray<Onboarding>(onboardingQuery.data)[0];
   const updateApplicant = useUpdateApplicant();
+  const updateOnboarding = useUpdateOnboarding();
   const createOnboarding = useCreateOnboarding();
   const interviewsQuery = useQuery({
     queryKey: ["/api/applicants", id, "interviews"],
@@ -143,6 +148,14 @@ export default function ApplicantDetail() {
       setRequirements(asArray<PreEmploymentRequirement>(applicant.preEmploymentRequirements));
     }
   }, [applicant]);
+
+  useEffect(() => {
+    if (onboarding) {
+      setMedicalStatus(onboarding.medicalStatus ?? "");
+      setMedicalNotes(onboarding.medicalNotes ?? "");
+      setMedicalDocuments(onboarding.medicalDocuments ?? "");
+    }
+  }, [onboarding]);
 
   const refreshApplicantData = async () => {
     await queryClient.invalidateQueries({ queryKey: getGetApplicantQueryKey(id) });
@@ -220,6 +233,24 @@ export default function ApplicantDetail() {
     } catch (error: unknown) {
       setRequirements(asArray<PreEmploymentRequirement>(applicant?.preEmploymentRequirements));
       toast.error(error instanceof Error ? error.message : "Could not update the document checklist.");
+    }
+  };
+
+  const saveMedicalAssessment = async () => {
+    if (!onboarding) return;
+    try {
+      await updateOnboarding.mutateAsync({
+        id: onboarding.id,
+        data: {
+          medicalStatus: medicalStatus || null,
+          medicalNotes: medicalNotes.trim(),
+          medicalDocuments: medicalDocuments.trim(),
+        },
+      });
+      await refreshApplicantData();
+      toast.success("Medical assessment saved.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Could not save medical assessment.");
     }
   };
 
@@ -621,6 +652,71 @@ export default function ApplicantDetail() {
             </label>
           ))}
         </div>
+      </Section>
+
+      <Section title="Medical / Physical Exam">
+        {onboarding ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Assessment status does not change the applicant's recruitment status. Progress to Fit to Work requires a Fit to Work result and completed Medical and Physical checklist items.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <label htmlFor="applicant-medical-status" className="text-sm font-medium">Assessment status</label>
+                <select
+                  id="applicant-medical-status"
+                  className="h-10 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                  value={medicalStatus}
+                  onChange={(event) => setMedicalStatus(event.target.value)}
+                >
+                  <option value="">Not recorded</option>
+                  <option value="For Physical Exam">For Physical Exam</option>
+                  <option value="Fit to Work">Fit to Work</option>
+                  <option value="Not Fit">Not Fit</option>
+                </select>
+              </div>
+              {onboarding.medicalUpdatedAt ? (
+                <p className="self-end text-sm text-gray-500">
+                  Last updated: {new Date(onboarding.medicalUpdatedAt).toLocaleString()}
+                </p>
+              ) : null}
+              <div className="grid gap-2 md:col-span-2">
+                <label htmlFor="applicant-medical-notes" className="text-sm font-medium">Medical notes / relevant information</label>
+                <textarea
+                  id="applicant-medical-notes"
+                  className="min-h-20 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                  rows={3}
+                  value={medicalNotes}
+                  onChange={(event) => setMedicalNotes(event.target.value)}
+                />
+              </div>
+              <div className="grid gap-2 md:col-span-2">
+                <label htmlFor="applicant-medical-documents" className="text-sm font-medium">Document names or secure references</label>
+                <textarea
+                  id="applicant-medical-documents"
+                  className="min-h-16 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                  rows={2}
+                  value={medicalDocuments}
+                  onChange={(event) => setMedicalDocuments(event.target.value)}
+                  placeholder="Record document names or an existing secure reference"
+                />
+                <p className="text-xs text-gray-500">
+                  The system records references only; it does not upload or store medical files.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" disabled={updateOnboarding.isPending} onClick={saveMedicalAssessment}>
+                {updateOnboarding.isPending ? "Saving..." : "Save medical assessment"}
+              </Button>
+              <span className="text-sm text-gray-500">Onboarding progress: {onboarding.progressStage}</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Start onboarding after the offer is accepted to record medical and physical assessment details.
+          </p>
+        )}
       </Section>
 
       <Section title="Professional Profile">

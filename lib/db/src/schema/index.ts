@@ -493,6 +493,10 @@ export const onboardings = pgTable("onboardings", {
   preEmploymentRequirements: jsonb("pre_employment_requirements")
     .$type<PreEmploymentRequirement[]>()
     .notNull(),
+  medicalStatus: text("medical_status"),
+  medicalNotes: text("medical_notes").notNull().default(""),
+  medicalDocuments: text("medical_documents").notNull().default(""),
+  medicalUpdatedAt: timestamp("medical_updated_at", { withTimezone: true }),
   /** in_progress | approved | hired | cancelled */
   status: text("status").notNull().default("in_progress"),
   hrNotes: text("hr_notes").notNull().default(""),

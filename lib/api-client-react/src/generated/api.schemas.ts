@@ -711,6 +711,10 @@ export interface Onboarding {
   interviewStatus: string;
   interviewResult: string;
   preEmploymentRequirements: PreEmploymentRequirement[];
+  medicalStatus: string | null;
+  medicalNotes: string;
+  medicalDocuments: string;
+  medicalUpdatedAt: string | null;
   /** in_progress | approved | hired | cancelled */
   status: string;
   hrNotes: string;
@@ -733,6 +737,9 @@ export interface OnboardingUpdate {
   interviewStatus?: string | null;
   interviewResult?: string | null;
   preEmploymentRequirements?: PreEmploymentRequirement[] | null;
+  medicalStatus?: string | null;
+  medicalNotes?: string | null;
+  medicalDocuments?: string | null;
   status?: string | null;
   hrNotes?: string | null;
 }

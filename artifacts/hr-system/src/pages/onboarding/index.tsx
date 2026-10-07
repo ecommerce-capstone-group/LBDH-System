@@ -64,6 +64,9 @@ export default function OnboardingPage() {
   const [interviewStatus, setInterviewStatus] = useState("pending");
   const [interviewResult, setInterviewResult] = useState("");
   const [interviewNotes, setInterviewNotes] = useState("");
+  const [medicalStatus, setMedicalStatus] = useState("");
+  const [medicalNotes, setMedicalNotes] = useState("");
+  const [medicalDocuments, setMedicalDocuments] = useState("");
   const [hrNotes, setHrNotes] = useState("");
   const [onboardingStatus, setOnboardingStatus] = useState("in_progress");
   const [progressStage, setProgressStage] = useState("Pre-Employment Requirements");
@@ -97,6 +100,9 @@ export default function OnboardingPage() {
     setInterviewStatus(row.interviewStatus || "pending");
     setInterviewResult(row.interviewResult || "");
     setInterviewNotes(row.interviewNotes || "");
+    setMedicalStatus(row.medicalStatus || "");
+    setMedicalNotes(row.medicalNotes || "");
+    setMedicalDocuments(row.medicalDocuments || "");
     setHrNotes(row.hrNotes || "");
     setOnboardingStatus(row.status || "in_progress");
     setProgressStage(row.progressStage || "Pre-Employment Requirements");
@@ -130,6 +136,9 @@ export default function OnboardingPage() {
           interviewStatus,
           interviewResult: interviewResult.trim() || "",
           interviewNotes: interviewNotes.trim() || "",
+          medicalStatus: medicalStatus || null,
+          medicalNotes: medicalNotes.trim(),
+          medicalDocuments: medicalDocuments.trim(),
           hrNotes: hrNotes.trim() || "",
           status: onboardingStatus,
           preEmploymentRequirements: requirements,
@@ -339,6 +348,50 @@ export default function OnboardingPage() {
                     ))}
                   </div>
                 </div>
+                <div className="space-y-3 rounded-md border p-3 md:col-span-2">
+                  <h4 className="text-sm font-semibold">Medical / Physical Exam</h4>
+                  <div className="grid gap-2">
+                    <Label htmlFor="ob-medical-status">Assessment status</Label>
+                    <select
+                      id="ob-medical-status"
+                      className={selectClass}
+                      value={medicalStatus}
+                      onChange={(event) => setMedicalStatus(event.target.value)}
+                    >
+                      <option value="">Not recorded</option>
+                      <option value="For Physical Exam">For Physical Exam</option>
+                      <option value="Fit to Work">Fit to Work</option>
+                      <option value="Not Fit">Not Fit</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="ob-medical-notes">Medical notes / relevant information</Label>
+                    <Textarea
+                      id="ob-medical-notes"
+                      value={medicalNotes}
+                      onChange={(event) => setMedicalNotes(event.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="ob-medical-documents">Document names or secure references</Label>
+                    <Textarea
+                      id="ob-medical-documents"
+                      value={medicalDocuments}
+                      onChange={(event) => setMedicalDocuments(event.target.value)}
+                      rows={2}
+                      placeholder="Record document names or an existing secure reference"
+                    />
+                    <p className="text-xs text-gray-500">
+                      The system records references only; it does not upload or store medical files.
+                    </p>
+                  </div>
+                  {editRecord.medicalUpdatedAt ? (
+                    <p className="text-xs text-gray-500">
+                      Last updated: {new Date(editRecord.medicalUpdatedAt).toLocaleString()}
+                    </p>
+                  ) : null}
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="ob-status">Onboarding status</Label>
                   <select
@@ -348,7 +401,9 @@ export default function OnboardingPage() {
                     onChange={(e) => setOnboardingStatus(e.target.value)}
                   >
                     <option value="in_progress">In progress</option>
-                    <option value="approved">Approved (ready to create employee)</option>
+                    <option value="approved" disabled={medicalStatus !== "Fit to Work"}>
+                      Approved (ready to create employee)
+                    </option>
                     <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
@@ -473,6 +528,10 @@ export default function OnboardingPage() {
                   <p className="text-sm text-gray-600 mt-1">
                     Onboarding progress: <strong>{row.progressStage}</strong>
                   </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Medical assessment: <strong>{row.medicalStatus || "Not recorded"}</strong>
+                    {row.medicalUpdatedAt ? ` · Updated ${new Date(row.medicalUpdatedAt).toLocaleString()}` : ""}
+                  </p>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <div className="grid md:grid-cols-2 gap-8">
@@ -522,13 +581,27 @@ export default function OnboardingPage() {
                           </div>
                         ))}
                       </div>
+                      {row.medicalNotes || row.medicalDocuments ? (
+                        <div className="mt-4 space-y-2 rounded-md border p-3 text-sm">
+                          {row.medicalNotes ? (
+                            <p className="whitespace-pre-wrap">
+                              <strong>Medical notes: </strong>{row.medicalNotes}
+                            </p>
+                          ) : null}
+                          {row.medicalDocuments ? (
+                            <p className="whitespace-pre-wrap">
+                              <strong>Document references: </strong>{row.medicalDocuments}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="mt-4 flex flex-wrap justify-end gap-2">
                         {row.status !== "hired" && row.status !== "cancelled" && (
                           <Button type="button" variant="outline" size="sm" onClick={() => openEdit(row)}>
                             Update
                           </Button>
                         )}
-                        {row.status === "approved" && !row.employeeId && (
+                        {row.status === "approved" && row.medicalStatus === "Fit to Work" && !row.employeeId && (
                           <Button type="button" size="sm" onClick={() => openHire(row)}>
                             <UserPlus className="mr-2 h-4 w-4" /> Create employee
                           </Button>

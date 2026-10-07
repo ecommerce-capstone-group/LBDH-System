@@ -1917,7 +1917,7 @@ components:
 
     Onboarding:
       type: object
-      required: [id, applicantId, jobId, applicantName, applicantEmail, applicantPhone, jobTitle, jobDepartment, progressStage, interviewNotes, interviewStatus, interviewResult, preEmploymentRequirements, status, hrNotes, createdAt, updatedAt]
+      required: [id, applicantId, jobId, applicantName, applicantEmail, applicantPhone, jobTitle, jobDepartment, progressStage, interviewNotes, interviewStatus, interviewResult, preEmploymentRequirements, medicalStatus, medicalNotes, medicalDocuments, medicalUpdatedAt, status, hrNotes, createdAt, updatedAt]
       properties:
         id: { type: integer }
         applicantId: { type: integer }
@@ -1937,6 +1937,10 @@ components:
         preEmploymentRequirements:
           type: array
           items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
+        medicalStatus: { type: string, nullable: true, enum: ["For Physical Exam", "Fit to Work", "Not Fit"] }
+        medicalNotes: { type: string }
+        medicalDocuments: { type: string, description: "Document names or secure references; uploaded files are not stored by this system." }
+        medicalUpdatedAt: { type: string, format: date-time, nullable: true }
         status: { type: string, description: "in_progress | approved | hired | cancelled" }
         hrNotes: { type: string }
         createdAt: { type: string }
@@ -1964,6 +1968,9 @@ components:
           type: array
           nullable: true
           items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
+        medicalStatus: { type: string, nullable: true, enum: ["For Physical Exam", "Fit to Work", "Not Fit"] }
+        medicalNotes: { type: string, nullable: true }
+        medicalDocuments: { type: string, nullable: true }
         status: { type: string, nullable: true }
         hrNotes: { type: string, nullable: true }
 

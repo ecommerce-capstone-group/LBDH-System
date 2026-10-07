@@ -18,6 +18,7 @@ services:
       node lib/db/scripts/migrate-training-appraisals.mjs &&
       node lib/db/scripts/migrate-employee-incidents.mjs &&
       node lib/db/scripts/migrate-onboardings.mjs &&
+      node lib/db/scripts/migrate-onboarding-medical.mjs &&
       node lib/db/scripts/migrate-applicant-monitoring.mjs &&
       node lib/db/scripts/migrate-applicant-interviews.mjs &&
       node lib/db/scripts/migrate-manpower-requests.mjs &&

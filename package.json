@@ -16,6 +16,7 @@
     "db:migrate-applicant-monitoring": "node lib/db/scripts/migrate-applicant-monitoring.mjs",
     "db:migrate-applicant-interviews": "node lib/db/scripts/migrate-applicant-interviews.mjs",
     "db:migrate-manpower-requests": "node lib/db/scripts/migrate-manpower-requests.mjs",
+    "db:migrate-onboarding-medical": "node lib/db/scripts/migrate-onboarding-medical.mjs",
     "db:fix-jobs-staff": "node lib/db/scripts/ensure-jobs-staff-needed.mjs",
     "db:migrate-appraisals": "node lib/db/scripts/migrate-appraisals.mjs",
     "db:migrate-training-appraisals": "node lib/db/scripts/migrate-training-appraisals.mjs",
