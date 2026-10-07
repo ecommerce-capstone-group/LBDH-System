@@ -174,6 +174,30 @@ export const applicants = pgTable("applicants", {
     .defaultNow(),
 });
 
+export const APPLICANT_INTERVIEW_STAGES = [
+  "Initial Interview",
+  "Technical Assessment",
+  "Final / In-depth Interview",
+] as const;
+
+export const applicantInterviews = pgTable("applicant_interviews", {
+  id: serial("id").primaryKey(),
+  applicantId: integer("applicant_id")
+    .notNull()
+    .references(() => applicants.id, { onDelete: "cascade" }),
+  stage: text("stage").notNull(),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+  interviewer: text("interviewer").notNull(),
+  notes: text("notes").notNull().default(""),
+  result: text("result"),
+  outcome: text("outcome"),
+  status: text("status").notNull().default("scheduled"),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const attendance = pgTable("attendance", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id")

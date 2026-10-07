@@ -339,6 +339,68 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Applicant" }
 
+  /applicants/{id}/interviews:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      operationId: listApplicantInterviews
+      tags: [applicants]
+      responses:
+        "200":
+          description: Historical, scheduled, and completed interview records
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApplicantInterview" }
+    post:
+      operationId: scheduleApplicantInterview
+      tags: [applicants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicantInterviewInput" }
+      responses:
+        "201":
+          description: Interview scheduled without changing recruitment status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicantInterview" }
+
+  /applicants/{id}/interviews/{interviewId}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+      - in: path
+        name: interviewId
+        required: true
+        schema: { type: integer }
+    patch:
+      operationId: completeApplicantInterview
+      tags: [applicants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [result, outcome]
+              properties:
+                result: { type: string }
+                outcome: { type: string, enum: [Passed, Failed] }
+      responses:
+        "200":
+          description: Completed interview, timestamped and retained as history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicantInterview" }
+
   /attendance:
     get:
       operationId: listAttendance
@@ -1232,6 +1294,31 @@ components:
         stage: { type: string }
         stageOutcome: { type: string, nullable: true }
         changedAt: { type: string }
+
+    ApplicantInterview:
+      type: object
+      required: [id, applicantId, stage, scheduledAt, interviewer, notes, status, createdAt]
+      properties:
+        id: { type: integer }
+        applicantId: { type: integer }
+        stage: { type: string, enum: [Initial Interview, Technical Assessment, Final / In-depth Interview] }
+        scheduledAt: { type: string, format: date-time }
+        interviewer: { type: string }
+        notes: { type: string }
+        result: { type: string, nullable: true }
+        outcome: { type: string, nullable: true, enum: [Passed, Failed] }
+        status: { type: string, enum: [scheduled, completed] }
+        completedAt: { type: string, nullable: true, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    ApplicantInterviewInput:
+      type: object
+      required: [stage, scheduledAt, interviewer]
+      properties:
+        stage: { type: string, enum: [Initial Interview, Technical Assessment, Final / In-depth Interview] }
+        scheduledAt: { type: string, format: date-time }
+        interviewer: { type: string }
+        notes: { type: string, nullable: true }
 
     ApplicantUpdate:
       type: object

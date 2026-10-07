@@ -218,6 +218,32 @@ export interface ApplicantRecruitmentHistory {
   changedAt: string;
 }
 
+export interface ApplicantInterview {
+  id: number;
+  applicantId: number;
+  stage: "Initial Interview" | "Technical Assessment" | "Final / In-depth Interview";
+  scheduledAt: string;
+  interviewer: string;
+  notes: string;
+  result?: string | null;
+  outcome?: "Passed" | "Failed" | null;
+  status: "scheduled" | "completed";
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ApplicantInterviewInput {
+  stage: ApplicantInterview["stage"];
+  scheduledAt: string;
+  interviewer: string;
+  notes?: string | null;
+}
+
+export interface ApplicantInterviewCompletion {
+  result: string;
+  outcome: "Passed" | "Failed";
+}
+
 export interface ApplicantUpdate {
   stage?: string;
   stageOutcome?: string | null;

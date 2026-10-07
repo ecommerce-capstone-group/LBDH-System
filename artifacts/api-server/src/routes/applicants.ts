@@ -2,14 +2,16 @@ import { Router, type IRouter } from "express";
 import {
   db,
   applicants,
+  applicantInterviews,
   applicantRecruitmentHistory,
   jobs,
   onboardings,
   pool,
   APPLICANT_RECRUITMENT_STAGES,
   DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS,
+  APPLICANT_INTERVIEW_STAGES,
 } from "@workspace/db";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { CreateApplicantBody, UpdateApplicantBody } from "@workspace/api-zod";
 import type {
   ApplicantAiEvaluation,
@@ -47,6 +49,19 @@ export function ensureApplicantMonitoringSchema(): Promise<void> {
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS pre_employment_requirements jsonb NOT NULL DEFAULT '[]'::jsonb;
         ALTER TABLE onboardings ADD COLUMN IF NOT EXISTS starting_date date;
         ALTER TABLE onboardings ADD COLUMN IF NOT EXISTS progress_stage text NOT NULL DEFAULT 'Pre-Employment Requirements';
+        CREATE TABLE IF NOT EXISTS applicant_interviews (
+          id serial PRIMARY KEY,
+          applicant_id integer NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
+          stage text NOT NULL,
+          scheduled_at timestamptz NOT NULL,
+          interviewer text NOT NULL,
+          notes text NOT NULL DEFAULT '',
+          result text,
+          outcome text,
+          status text NOT NULL DEFAULT 'scheduled',
+          completed_at timestamptz,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
         CREATE TABLE IF NOT EXISTS applicant_recruitment_history (
           id serial PRIMARY KEY,
           applicant_id integer NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
@@ -379,6 +394,121 @@ router.get("/applicants/:id", async (req, res) => {
   } catch (err) {
     console.error("get applicant failed", err);
     res.status(500).json({ error: "Could not load applicant" });
+  }
+});
+
+router.get("/applicants/:id/interviews", async (req, res) => {
+  try {
+    await ensureApplicantMonitoringSchema();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid id" });
+    const [applicant] = await db.select({ id: applicants.id }).from(applicants).where(eq(applicants.id, id));
+    if (!applicant) return res.status(404).json({ error: "Applicant not found" });
+    const interviews = await db
+      .select()
+      .from(applicantInterviews)
+      .where(eq(applicantInterviews.applicantId, id))
+      .orderBy(asc(applicantInterviews.scheduledAt), asc(applicantInterviews.id));
+    res.json(interviews);
+  } catch (error) {
+    console.error("list applicant interviews failed", error);
+    res.status(500).json({ error: "Could not load interview history" });
+  }
+});
+
+router.post("/applicants/:id/interviews", async (req, res) => {
+  try {
+    await ensureApplicantMonitoringSchema();
+    const applicantId = Number(req.params.id);
+    if (!Number.isInteger(applicantId) || applicantId < 1) {
+      return res.status(400).json({ error: "Invalid applicant id" });
+    }
+    const { stage, scheduledAt, interviewer, notes } = req.body ?? {};
+    if (
+      !APPLICANT_INTERVIEW_STAGES.includes(stage) ||
+      typeof scheduledAt !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(scheduledAt) ||
+      !Number.isFinite(Date.parse(scheduledAt)) ||
+      typeof interviewer !== "string" ||
+      !interviewer.trim() ||
+      (notes != null && typeof notes !== "string")
+    ) {
+      return res.status(400).json({
+        error: "A valid interview stage, scheduled date/time, interviewer, and notes are required.",
+      });
+    }
+    const [applicant] = await db.select({ id: applicants.id }).from(applicants).where(eq(applicants.id, applicantId));
+    if (!applicant) return res.status(404).json({ error: "Applicant not found" });
+    const [interview] = await db
+      .insert(applicantInterviews)
+      .values({
+        applicantId,
+        stage,
+        scheduledAt: new Date(scheduledAt),
+        interviewer: interviewer.trim(),
+        notes: typeof notes === "string" ? notes.trim() : "",
+        status: "scheduled",
+      })
+      .returning();
+    res.status(201).json(interview);
+  } catch (error) {
+    console.error("schedule applicant interview failed", error);
+    res.status(500).json({ error: "Could not schedule interview" });
+  }
+});
+
+router.patch("/applicants/:id/interviews/:interviewId", async (req, res) => {
+  try {
+    await ensureApplicantMonitoringSchema();
+    const applicantId = Number(req.params.id);
+    const interviewId = Number(req.params.interviewId);
+    if (
+      !Number.isInteger(applicantId) || applicantId < 1 ||
+      !Number.isInteger(interviewId) || interviewId < 1
+    ) {
+      return res.status(400).json({ error: "Invalid applicant or interview id" });
+    }
+    const { result, outcome } = req.body ?? {};
+    if (
+      typeof result !== "string" ||
+      !result.trim() ||
+      (outcome !== "Passed" && outcome !== "Failed")
+    ) {
+      return res.status(400).json({ error: "A result and Passed/Failed outcome are required." });
+    }
+    const [completed] = await db
+      .update(applicantInterviews)
+      .set({
+        result: result.trim(),
+        outcome,
+        status: "completed",
+        completedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(applicantInterviews.id, interviewId),
+          eq(applicantInterviews.applicantId, applicantId),
+          eq(applicantInterviews.status, "scheduled"),
+        ),
+      )
+      .returning();
+    if (!completed) {
+      const [existing] = await db
+        .select({ id: applicantInterviews.id })
+        .from(applicantInterviews)
+        .where(
+          and(
+            eq(applicantInterviews.id, interviewId),
+            eq(applicantInterviews.applicantId, applicantId),
+          ),
+        );
+      if (!existing) return res.status(404).json({ error: "Interview record not found" });
+      return res.status(409).json({ error: "Completed interview records are historical and cannot be overwritten." });
+    }
+    res.json(completed);
+  } catch (error) {
+    console.error("complete applicant interview failed", error);
+    res.status(500).json({ error: "Could not complete interview" });
   }
 });
 

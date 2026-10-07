@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   getGetJobQueryKey,
   getGetApplicantQueryKey,
@@ -10,9 +11,11 @@ import {
   useGetJob,
   useListOnboardings,
   useUpdateApplicant,
+  customFetch,
 } from "@workspace/api-client-react";
 import type {
   Applicant,
+  ApplicantInterview,
   ApplicantRecruitmentHistory,
   Job,
   Onboarding,
@@ -31,6 +34,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { asArray, isRecord } from "@/lib/api-guards";
+
+type InterviewStage =
+  | "Initial Interview"
+  | "Technical Assessment"
+  | "Final / In-depth Interview";
+
+const interviewStages: InterviewStage[] = [
+  "Initial Interview",
+  "Technical Assessment",
+  "Final / In-depth Interview",
+];
 
 const recruitmentStages = [
   "Onboarded",
@@ -69,6 +83,13 @@ export default function ApplicantDetail() {
   const [selectedStage, setSelectedStage] = useState<string>("");
   const [selectedOutcome, setSelectedOutcome] = useState<string | null>(null);
   const [requirements, setRequirements] = useState<PreEmploymentRequirement[]>([]);
+  const [interviewStage, setInterviewStage] = useState<InterviewStage>("Initial Interview");
+  const [interviewScheduledAt, setInterviewScheduledAt] = useState("");
+  const [interviewInterviewer, setInterviewInterviewer] = useState("");
+  const [interviewNotes, setInterviewNotes] = useState("");
+  const [completingInterviewId, setCompletingInterviewId] = useState<number | null>(null);
+  const [interviewResult, setInterviewResult] = useState("");
+  const [interviewOutcome, setInterviewOutcome] = useState<"Passed" | "Failed" | null>(null);
   const applicantQuery = useGetApplicant(id, {
     query: { enabled: Number.isFinite(id) && id > 0, queryKey: getGetApplicantQueryKey(id) },
   });
@@ -87,6 +108,33 @@ export default function ApplicantDetail() {
   const onboarding = asArray<Onboarding>(onboardingQuery.data)[0];
   const updateApplicant = useUpdateApplicant();
   const createOnboarding = useCreateOnboarding();
+  const interviewsQuery = useQuery({
+    queryKey: ["/api/applicants", id, "interviews"],
+    queryFn: () => customFetch<ApplicantInterview[]>(`/api/applicants/${id}/interviews`),
+    enabled: Number.isInteger(id) && id > 0,
+  });
+  const createInterview = useMutation({
+    mutationFn: (data: {
+      stage: InterviewStage;
+      scheduledAt: string;
+      interviewer: string;
+      notes: string;
+    }) =>
+      customFetch<ApplicantInterview>(`/api/applicants/${id}/interviews`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  });
+  const completeInterview = useMutation({
+    mutationFn: (data: { interviewId: number; result: string; outcome: "Passed" | "Failed" }) =>
+      customFetch<ApplicantInterview>(
+        `/api/applicants/${id}/interviews/${data.interviewId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ result: data.result, outcome: data.outcome }),
+        },
+      ),
+  });
 
   useEffect(() => {
     if (applicant) {
@@ -100,6 +148,54 @@ export default function ApplicantDetail() {
     await queryClient.invalidateQueries({ queryKey: getGetApplicantQueryKey(id) });
     await queryClient.invalidateQueries({ queryKey: getListApplicantsQueryKey() });
     await queryClient.invalidateQueries({ queryKey: getListOnboardingsQueryKey({ applicantId: id }) });
+  };
+
+  const refreshInterviews = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["/api/applicants", id, "interviews"] });
+    await queryClient.invalidateQueries({ queryKey: getGetApplicantQueryKey(id) });
+  };
+
+  const scheduleInterview = async () => {
+    if (!interviewScheduledAt || !interviewInterviewer.trim()) {
+      toast.error("Set the interview date/time and interviewer or assessor.");
+      return;
+    }
+    try {
+      await createInterview.mutateAsync({
+        stage: interviewStage,
+        scheduledAt: new Date(interviewScheduledAt).toISOString(),
+        interviewer: interviewInterviewer.trim(),
+        notes: interviewNotes.trim(),
+      });
+      await refreshInterviews();
+      setInterviewScheduledAt("");
+      setInterviewInterviewer("");
+      setInterviewNotes("");
+      toast.success("Interview scheduled.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not schedule interview.");
+    }
+  };
+
+  const saveInterviewResult = async (interviewId: number) => {
+    if (!interviewResult.trim() || !interviewOutcome) {
+      toast.error("Enter the interview result and select Passed or Failed.");
+      return;
+    }
+    try {
+      await completeInterview.mutateAsync({
+        interviewId,
+        result: interviewResult.trim(),
+        outcome: interviewOutcome,
+      });
+      await refreshInterviews();
+      setCompletingInterviewId(null);
+      setInterviewResult("");
+      setInterviewOutcome(null);
+      toast.success("Interview completed and saved to history.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not complete interview.");
+    }
   };
 
   const saveStage = async () => {
@@ -150,6 +246,7 @@ export default function ApplicantDetail() {
   }
 
   const history = asArray<ApplicantRecruitmentHistory>(applicant.recruitmentHistory);
+  const interviewRecords = asArray<ApplicantInterview>(interviewsQuery.data);
   const completedStages = new Set(history.map((entry) => entry.stage));
   const matches = asArray(applicant.matches);
   const evaluations = isRecord(applicant.aiEvaluation) ? applicant.aiEvaluation : null;
@@ -250,6 +347,35 @@ export default function ApplicantDetail() {
                 );
               })}
             </ol>
+            <div className="mt-4 rounded-md border bg-gray-50 p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                Interview / assessment activity
+              </h4>
+              <ul className="mt-2 space-y-2">
+                {interviewStages.map((stage) => {
+                  const records = interviewRecords.filter((record) => record.stage === stage);
+                  const latest = [...records].sort(
+                    (left, right) =>
+                      Date.parse(right.completedAt ?? right.scheduledAt) -
+                      Date.parse(left.completedAt ?? left.scheduledAt),
+                  )[0];
+                  return (
+                    <li key={stage} className="flex flex-wrap justify-between gap-x-3 text-xs">
+                      <span className="text-gray-700">
+                        {stage} · {records.length} record{records.length === 1 ? "" : "s"}
+                      </span>
+                      <span className="text-gray-500">
+                        {latest
+                          ? latest.outcome
+                            ? `${latest.outcome} · ${new Date(latest.completedAt ?? latest.scheduledAt).toLocaleDateString()}`
+                            : `Scheduled · ${new Date(latest.scheduledAt).toLocaleDateString()}`
+                          : "No interview recorded"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </div>
         </div>
         <div className="mt-6 border-t pt-4">
@@ -270,6 +396,199 @@ export default function ApplicantDetail() {
                 </li>
               ))}
             </ol>
+          )}
+        </div>
+      </Section>
+
+      <Section title="Interviews & Assessments" open>
+        <div className="space-y-6">
+          <p className="text-sm text-gray-600">
+            Interview records are kept as history and do not change the applicant’s recruitment stage. HR controls
+            recruitment progress separately above.
+          </p>
+          <div className="grid gap-4 rounded-lg border bg-gray-50 p-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <label htmlFor="interview-stage" className="text-sm font-medium">Interview / assessment stage</label>
+              <select
+                id="interview-stage"
+                className="h-10 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                value={interviewStage}
+                onChange={(event) => setInterviewStage(event.target.value as InterviewStage)}
+              >
+                {interviewStages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="interview-scheduled-at" className="text-sm font-medium">Scheduled date and time</label>
+              <input
+                id="interview-scheduled-at"
+                type="datetime-local"
+                className="h-10 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                value={interviewScheduledAt}
+                onChange={(event) => setInterviewScheduledAt(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="interview-interviewer" className="text-sm font-medium">Interviewer / assessor</label>
+              <input
+                id="interview-interviewer"
+                className="h-10 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                value={interviewInterviewer}
+                onChange={(event) => setInterviewInterviewer(event.target.value)}
+                placeholder="Name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="interview-notes" className="text-sm font-medium">Notes / remarks</label>
+              <textarea
+                id="interview-notes"
+                className="min-h-10 rounded-md border border-input bg-white px-3 py-2 text-sm"
+                rows={2}
+                value={interviewNotes}
+                onChange={(event) => setInterviewNotes(event.target.value)}
+                placeholder="Optional notes for the scheduled interview"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Button
+                type="button"
+                disabled={createInterview.isPending}
+                onClick={scheduleInterview}
+              >
+                {createInterview.isPending ? "Saving..." : "Schedule interview"}
+              </Button>
+            </div>
+          </div>
+
+          {interviewsQuery.isLoading ? (
+            <p className="text-sm text-gray-500">Loading interview history...</p>
+          ) : interviewsQuery.isError ? (
+            <p role="alert" className="text-sm text-red-700">Could not load interview history.</p>
+          ) : (
+            <>
+              {(["scheduled", "completed"] as const).map((status) => {
+                const interviewRows = interviewRecords
+                  .filter((record) => record.status === status)
+                  .sort((left, right) =>
+                    status === "scheduled"
+                      ? Date.parse(left.scheduledAt) - Date.parse(right.scheduledAt)
+                      : Date.parse(right.completedAt ?? right.scheduledAt) -
+                        Date.parse(left.completedAt ?? left.scheduledAt),
+                  );
+                return (
+                  <div key={status} className="space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      {status === "scheduled" ? "Upcoming / Scheduled" : "Completed interview history"}
+                    </h3>
+                    {interviewRows.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        {status === "scheduled" ? "No upcoming interviews." : "No completed interviews yet."}
+                      </p>
+                    ) : (
+                      <ol className="space-y-3">
+                        {interviewRows.map((record) => (
+                          <li key={record.id} className="rounded-lg border p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <h4 className="font-medium text-gray-900">{record.stage}</h4>
+                                <p className="mt-1 text-sm text-gray-600">
+                                  {status === "scheduled" ? "Scheduled" : "Interview date"}:{" "}
+                                  {new Date(record.scheduledAt).toLocaleString()}
+                                </p>
+                                <p className="text-sm text-gray-600">Interviewer / assessor: {record.interviewer}</p>
+                                {record.completedAt ? (
+                                  <p className="text-sm text-gray-600">
+                                    Completed: {new Date(record.completedAt).toLocaleString()}
+                                  </p>
+                                ) : null}
+                              </div>
+                              {record.outcome ? (
+                                <span className={`rounded-full px-3 py-1 text-sm font-medium ${
+                                  record.outcome === "Passed" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                }`}>
+                                  {record.outcome}
+                                </span>
+                              ) : status === "scheduled" ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setCompletingInterviewId(record.id);
+                                    setInterviewResult("");
+                                    setInterviewOutcome(null);
+                                  }}
+                                >
+                                  Complete interview
+                                </Button>
+                              ) : null}
+                            </div>
+                            {record.notes ? (
+                              <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">
+                                <span className="font-medium">Notes: </span>{record.notes}
+                              </p>
+                            ) : null}
+                            {record.result ? (
+                              <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
+                                <span className="font-medium">Result / remarks: </span>{record.result}
+                              </p>
+                            ) : null}
+                            {completingInterviewId === record.id ? (
+                              <div className="mt-4 space-y-3 border-t pt-4">
+                                <div className="grid gap-2">
+                                  <label htmlFor={`interview-result-${record.id}`} className="text-sm font-medium">
+                                    Result / remarks
+                                  </label>
+                                  <textarea
+                                    id={`interview-result-${record.id}`}
+                                    className="min-h-20 rounded-md border border-input px-3 py-2 text-sm"
+                                    rows={3}
+                                    value={interviewResult}
+                                    onChange={(event) => setInterviewResult(event.target.value)}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <p className="text-sm font-medium">Assessment outcome</p>
+                                  <div className="flex gap-2">
+                                    {(["Passed", "Failed"] as const).map((outcome) => (
+                                      <Button
+                                        key={outcome}
+                                        type="button"
+                                        variant={interviewOutcome === outcome ? "default" : "outline"}
+                                        aria-pressed={interviewOutcome === outcome}
+                                        onClick={() => setInterviewOutcome(outcome)}
+                                      >
+                                        {outcome}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    disabled={completeInterview.isPending}
+                                    onClick={() => saveInterviewResult(record.id)}
+                                  >
+                                    {completeInterview.isPending ? "Saving..." : "Save completed interview"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setCompletingInterviewId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
       </Section>
