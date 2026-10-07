@@ -36,7 +36,9 @@ export const applicantRecruitmentHistory = pgTable(
       .notNull()
       .references(() => applicants.id, { onDelete: "cascade" }),
     previousStage: text("previous_stage"),
+    previousStageOutcome: text("previous_stage_outcome"),
     stage: text("stage").notNull(),
+    stageOutcome: text("stage_outcome"),
     changedAt: timestamp("changed_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -106,23 +108,10 @@ export type ApplicantAiEvaluation = {
 
 export const APPLICANT_RECRUITMENT_STAGES = [
   "For Initial Interview",
-  "Passed Initial Interview",
-  "Not Passed - Initial Interview",
   "For Final Interview",
-  "Passed Final Interview",
-  "Not Passed - Final Interview",
-  "For Job Offer",
-  "Accepted Offer",
-  "Declined Offer",
-  "Ongoing Pre-Employment Requirements",
-  "For Physical Exam",
-  "Fit to Work",
-  "Starting Date",
-  "Onboarding",
-  "Employee Profile Created",
-  "Employee Account Created",
+  "For Job Offering",
+  "On-going Pre-Employment",
   "Onboarded",
-  "Not Passed - Medical/Physical Exam",
   "Withdraw Application",
   "No Show",
 ] as const;
@@ -140,6 +129,7 @@ export const applicants = pgTable("applicants", {
   experience: text("experience").notNull(),
   resume: text("resume").notNull(),
   stage: text("stage").notNull().default("For Initial Interview"),
+  stageOutcome: text("stage_outcome"),
   stageUpdatedAt: timestamp("stage_updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -409,6 +399,17 @@ export const DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS: PreEmploymentRequirement[] = [
   { label: "Physical", done: false },
 ];
 
+export const ONBOARDING_PROGRESS_STAGES = [
+  "Pre-Employment Requirements",
+  "Medical / Physical Exam",
+  "Fit to Work",
+  "Starting Date",
+  "Onboarding",
+  "Employee Profile",
+  "Employee Account",
+  "Completed",
+] as const;
+
 /** Linked to the original applicant + job; optional employeeId after hire. */
 export const onboardings = pgTable("onboardings", {
   id: serial("id").primaryKey(),
@@ -427,6 +428,9 @@ export const onboardings = pgTable("onboardings", {
   applicantPhone: text("applicant_phone").notNull().default(""),
   jobTitle: text("job_title").notNull(),
   jobDepartment: text("job_department").notNull(),
+  progressStage: text("progress_stage")
+    .notNull()
+    .default("Pre-Employment Requirements"),
   interviewScheduledAt: timestamp("interview_scheduled_at", {
     withTimezone: true,
   }),

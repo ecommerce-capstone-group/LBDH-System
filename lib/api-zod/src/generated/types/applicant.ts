@@ -19,6 +19,7 @@ export interface Applicant {
   experience: string;
   resume: string;
   stage: string;
+  stageOutcome?: string | null;
   stageUpdatedAt: string;
   preEmploymentRequirements: Array<{ label: string; done: boolean; notes?: string | null }>;
   recruitmentHistory?: ApplicantRecruitmentHistory[];
@@ -34,6 +35,8 @@ export interface ApplicantRecruitmentHistory {
   id: number;
   applicantId: number;
   previousStage?: string | null;
+  previousStageOutcome?: string | null;
   stage: string;
+  stageOutcome?: string | null;
   changedAt: string;
 }

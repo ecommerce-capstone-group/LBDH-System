@@ -33,34 +33,23 @@ import {
 import { asArray, isRecord } from "@/lib/api-guards";
 
 const recruitmentStages = [
-  "For Initial Interview",
-  "Passed Initial Interview",
-  "Not Passed - Initial Interview",
-  "For Final Interview",
-  "Passed Final Interview",
-  "Not Passed - Final Interview",
-  "For Job Offer",
-  "Accepted Offer",
-  "Declined Offer",
-  "Ongoing Pre-Employment Requirements",
-  "For Physical Exam",
-  "Fit to Work",
-  "Starting Date",
-  "Onboarding",
-  "Employee Profile Created",
-  "Employee Account Created",
   "Onboarded",
-  "Not Passed - Medical/Physical Exam",
+  "On-going Pre-Employment",
+  "For Initial Interview",
+  "For Final Interview",
+  "For Job Offering",
   "Withdraw Application",
   "No Show",
 ] as const;
 const systemManagedStages = new Set([
-  "Starting Date",
-  "Onboarding",
-  "Employee Profile Created",
-  "Employee Account Created",
+  "On-going Pre-Employment",
   "Onboarded",
 ]);
+const outcomesByStage: Record<string, string[]> = {
+  "For Initial Interview": ["Passed", "Not Passed"],
+  "For Final Interview": ["Passed", "Not Passed"],
+  "For Job Offering": ["Accepted Offer", "Declined Offer"],
+};
 
 function Section({ title, children, open = false }: { title: string; children: React.ReactNode; open?: boolean }) {
   return (
@@ -78,6 +67,7 @@ export default function ApplicantDetail() {
   const id = Number(params.id);
   const queryClient = useQueryClient();
   const [selectedStage, setSelectedStage] = useState<string>("");
+  const [selectedOutcome, setSelectedOutcome] = useState<string | null>(null);
   const [requirements, setRequirements] = useState<PreEmploymentRequirement[]>([]);
   const applicantQuery = useGetApplicant(id, {
     query: { enabled: Number.isFinite(id) && id > 0, queryKey: getGetApplicantQueryKey(id) },
@@ -101,6 +91,7 @@ export default function ApplicantDetail() {
   useEffect(() => {
     if (applicant) {
       setSelectedStage(applicant.stage);
+      setSelectedOutcome(applicant.stageOutcome ?? null);
       setRequirements(asArray<PreEmploymentRequirement>(applicant.preEmploymentRequirements));
     }
   }, [applicant]);
@@ -113,7 +104,10 @@ export default function ApplicantDetail() {
 
   const saveStage = async () => {
     try {
-      await updateApplicant.mutateAsync({ id, data: { stage: selectedStage } });
+      await updateApplicant.mutateAsync({
+        id,
+        data: { stage: selectedStage, stageOutcome: selectedOutcome },
+      });
       await refreshApplicantData();
       toast.success("Recruitment stage updated.");
     } catch (error: unknown) {
@@ -174,7 +168,9 @@ export default function ApplicantDetail() {
         </div>
         <div className="rounded-lg border bg-blue-50 px-4 py-3">
           <p className="text-xs font-medium uppercase tracking-wide text-blue-700">Current recruitment stage</p>
-          <p className="mt-1 font-semibold text-blue-950">{applicant.stage}</p>
+          <p className="mt-1 font-semibold text-blue-950">
+            {applicant.stage}{applicant.stageOutcome ? ` — ${applicant.stageOutcome}` : ""}
+          </p>
         </div>
       </div>
 
@@ -184,19 +180,51 @@ export default function ApplicantDetail() {
             <p className="text-sm text-gray-600">
               Last updated {new Date(applicant.stageUpdatedAt).toLocaleString()}
             </p>
-            <Select value={selectedStage} onValueChange={setSelectedStage}>
+            <Select
+              value={selectedStage}
+              onValueChange={(stage) => {
+                setSelectedStage(stage);
+                if (stage !== selectedStage) setSelectedOutcome(null);
+              }}
+            >
               <SelectTrigger aria-label="Select current recruitment stage">
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
               <SelectContent>
-                {recruitmentStages.filter((stage) => !systemManagedStages.has(stage)).map((stage) => (
-                  <SelectItem key={stage} value={stage}>{stage}</SelectItem>
-                ))}
+                {recruitmentStages
+                  .filter((stage) => !systemManagedStages.has(stage))
+                  .map((stage) => (
+                    <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                  ))}
               </SelectContent>
             </Select>
+            {outcomesByStage[selectedStage] ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">
+                  {selectedStage === "For Job Offering" ? "Offer decision" : "Interview result"}
+                </p>
+                <div className="flex flex-wrap gap-2" role="group" aria-label={`${selectedStage} outcome`}>
+                  {outcomesByStage[selectedStage]!.map((outcome) => (
+                    <Button
+                      key={outcome}
+                      type="button"
+                      variant={selectedOutcome === outcome ? "default" : "outline"}
+                      aria-pressed={selectedOutcome === outcome}
+                      onClick={() => setSelectedOutcome(outcome)}
+                    >
+                      {outcome}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <Button
               type="button"
-              disabled={updateApplicant.isPending || selectedStage === applicant.stage}
+              disabled={
+                updateApplicant.isPending ||
+                (selectedStage === applicant.stage &&
+                  selectedOutcome === (applicant.stageOutcome ?? null))
+              }
               onClick={saveStage}
             >
               {updateApplicant.isPending ? "Saving..." : "Update stage"}
@@ -232,7 +260,9 @@ export default function ApplicantDetail() {
             <ol className="space-y-3">
               {[...history].reverse().map((entry) => (
                 <li key={entry.id} className="border-l-2 border-blue-200 pl-4">
-                  <p className="text-sm font-medium text-gray-900">{entry.stage}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {entry.stage}{entry.stageOutcome ? ` — ${entry.stageOutcome}` : ""}
+                  </p>
                   <p className="text-xs text-gray-500">
                     {entry.previousStage ? `From ${entry.previousStage} · ` : "Application received · "}
                     {new Date(entry.changedAt).toLocaleString()}
@@ -300,17 +330,19 @@ export default function ApplicantDetail() {
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           {onboarding ? (
             <>
-              <p className="text-sm text-gray-600">Linked onboarding status: <strong>{onboarding.status}</strong></p>
+              <p className="text-sm text-gray-600">
+                Linked onboarding: <strong>{onboarding.progressStage}</strong> · Status: <strong>{onboarding.status}</strong>
+              </p>
               <Button variant="outline" asChild><Link href="/onboarding">Open onboarding</Link></Button>
             </>
           ) : (
             <>
               <p className="text-sm text-gray-600">
-                {applicant.stage === "Accepted Offer"
+                {applicant.stage === "For Job Offering" && applicant.stageOutcome === "Accepted Offer"
                   ? "The applicant accepted the offer. Start pre-employment requirements to continue."
                   : "Start onboarding after the applicant has accepted the job offer."}
               </p>
-              {applicant.stage === "Accepted Offer" ? (
+              {applicant.stage === "For Job Offering" && applicant.stageOutcome === "Accepted Offer" ? (
                 <Button type="button" disabled={createOnboarding.isPending} onClick={startOnboarding}>
                   {createOnboarding.isPending ? "Starting..." : "Start pre-employment requirements"}
                 </Button>

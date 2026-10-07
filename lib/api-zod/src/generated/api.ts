@@ -299,6 +299,7 @@ export const ListApplicantsResponseItem = zod.object({
   experience: zod.string(),
   resume: zod.string(),
   stage: zod.string(),
+  stageOutcome: zod.string().nullish(),
   stageUpdatedAt: zod.string(),
   preEmploymentRequirements: zod.array(
     zod.object({
@@ -371,6 +372,7 @@ export const GetApplicantResponse = zod.object({
   experience: zod.string(),
   resume: zod.string(),
   stage: zod.string(),
+  stageOutcome: zod.string().nullish(),
   stageUpdatedAt: zod.string(),
   preEmploymentRequirements: zod.array(
     zod.object({
@@ -384,7 +386,9 @@ export const GetApplicantResponse = zod.object({
       id: zod.number(),
       applicantId: zod.number(),
       previousStage: zod.string().nullish(),
+      previousStageOutcome: zod.string().nullish(),
       stage: zod.string(),
+      stageOutcome: zod.string().nullish(),
       changedAt: zod.string(),
     }),
   ),
@@ -425,6 +429,7 @@ export const UpdateApplicantParams = zod.object({
 
 export const UpdateApplicantBody = zod.object({
   stage: zod.string().optional(),
+  stageOutcome: zod.string().nullish(),
   preEmploymentRequirements: zod
     .array(
       zod.object({
@@ -1289,6 +1294,7 @@ export const ListOnboardingsResponseItem = zod.object({
   applicantPhone: zod.string(),
   jobTitle: zod.string(),
   jobDepartment: zod.string(),
+  progressStage: zod.string(),
   interviewScheduledAt: zod.string().nullish(),
   startingDate: zod.string().nullish(),
   interviewNotes: zod.string(),
@@ -1334,6 +1340,7 @@ export const GetOnboardingResponse = zod.object({
   applicantPhone: zod.string(),
   jobTitle: zod.string(),
   jobDepartment: zod.string(),
+  progressStage: zod.string(),
   interviewScheduledAt: zod.string().nullish(),
   startingDate: zod.string().nullish(),
   interviewNotes: zod.string(),
@@ -1359,6 +1366,7 @@ export const UpdateOnboardingParams = zod.object({
 });
 
 export const UpdateOnboardingBody = zod.object({
+  progressStage: zod.string().nullish(),
   interviewScheduledAt: zod.string().nullish(),
   startingDate: zod.string().nullish(),
   interviewNotes: zod.string().nullish(),
@@ -1387,6 +1395,7 @@ export const UpdateOnboardingResponse = zod.object({
   applicantPhone: zod.string(),
   jobTitle: zod.string(),
   jobDepartment: zod.string(),
+  progressStage: zod.string(),
   interviewScheduledAt: zod.string().nullish(),
   startingDate: zod.string().nullish(),
   interviewNotes: zod.string(),

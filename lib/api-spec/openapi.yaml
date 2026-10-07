@@ -1097,7 +1097,8 @@ components:
         skills: { type: string }
         experience: { type: string }
         resume: { type: string }
-        stage: { type: string, enum: [For Initial Interview, Passed Initial Interview, Not Passed - Initial Interview, For Final Interview, Passed Final Interview, Not Passed - Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Starting Date, Onboarding, Employee Profile Created, Employee Account Created, Onboarded, Not Passed - Medical/Physical Exam, Withdraw Application, No Show] }
+        stage: { type: string, enum: [For Initial Interview, For Final Interview, For Job Offering, On-going Pre-Employment, Onboarded, Withdraw Application, No Show] }
+        stageOutcome: { type: string, nullable: true, enum: [Passed, Not Passed, Accepted Offer, Declined Offer] }
         stageUpdatedAt: { type: string }
         preEmploymentRequirements:
           type: array
@@ -1137,7 +1138,9 @@ components:
         id: { type: integer }
         applicantId: { type: integer }
         previousStage: { type: string, nullable: true }
+        previousStageOutcome: { type: string, nullable: true }
         stage: { type: string }
+        stageOutcome: { type: string, nullable: true }
         changedAt: { type: string }
 
     ApplicantUpdate:
@@ -1145,7 +1148,11 @@ components:
       properties:
         stage:
           type: string
-          enum: [For Initial Interview, Passed Initial Interview, Not Passed - Initial Interview, For Final Interview, Passed Final Interview, Not Passed - Final Interview, For Job Offer, Accepted Offer, Declined Offer, Ongoing Pre-Employment Requirements, For Physical Exam, Fit to Work, Starting Date, Onboarding, Employee Profile Created, Employee Account Created, Onboarded, Not Passed - Medical/Physical Exam, Withdraw Application, No Show]
+          enum: [For Initial Interview, For Final Interview, For Job Offering, On-going Pre-Employment, Onboarded, Withdraw Application, No Show]
+        stageOutcome:
+          type: string
+          nullable: true
+          enum: [Passed, Not Passed, Accepted Offer, Declined Offer]
         preEmploymentRequirements:
           type: array
           items: { $ref: "#/components/schemas/PreEmploymentRequirement" }
@@ -1733,7 +1740,7 @@ components:
 
     Onboarding:
       type: object
-      required: [id, applicantId, jobId, applicantName, applicantEmail, applicantPhone, jobTitle, jobDepartment, interviewNotes, interviewStatus, interviewResult, preEmploymentRequirements, status, hrNotes, createdAt, updatedAt]
+      required: [id, applicantId, jobId, applicantName, applicantEmail, applicantPhone, jobTitle, jobDepartment, progressStage, interviewNotes, interviewStatus, interviewResult, preEmploymentRequirements, status, hrNotes, createdAt, updatedAt]
       properties:
         id: { type: integer }
         applicantId: { type: integer }
@@ -1744,6 +1751,7 @@ components:
         applicantPhone: { type: string }
         jobTitle: { type: string }
         jobDepartment: { type: string }
+        progressStage: { type: string }
         interviewScheduledAt: { type: string, nullable: true }
         startingDate: { type: string, format: date, nullable: true }
         interviewNotes: { type: string }
@@ -1769,6 +1777,7 @@ components:
     OnboardingUpdate:
       type: object
       properties:
+        progressStage: { type: string, nullable: true }
         interviewScheduledAt: { type: string, nullable: true }
         startingDate: { type: string, format: date, nullable: true }
         interviewNotes: { type: string, nullable: true }

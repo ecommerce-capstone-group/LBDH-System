@@ -7,6 +7,7 @@ import {
   jobs,
   employees,
   DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS,
+  ONBOARDING_PROGRESS_STAGES,
   type PreEmploymentRequirement,
 } from "@workspace/db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -159,7 +160,7 @@ router.post("/onboardings", async (req, res) => {
       .from(applicants)
       .where(eq(applicants.id, applicantId));
     if (!applicant) return res.status(404).json({ error: "Applicant not found" });
-    if (applicant.stage !== "Accepted Offer") {
+    if (applicant.stage !== "For Job Offering" || applicant.stageOutcome !== "Accepted Offer") {
       return res.status(400).json({
         error: "Onboarding can start only after the applicant accepts the job offer.",
       });
@@ -195,6 +196,7 @@ router.post("/onboardings", async (req, res) => {
           applicantPhone: applicant.phone ?? "",
           jobTitle: job.title,
           jobDepartment: job.department,
+          progressStage: "Pre-Employment Requirements",
           interviewScheduledAt,
           interviewNotes: asTrimmedString(body.interviewNotes),
           interviewStatus: interviewScheduledAt ? "scheduled" : "pending",
@@ -210,16 +212,24 @@ router.post("/onboardings", async (req, res) => {
       const changedAt = new Date();
       const [updatedApplicant] = await tx
         .update(applicants)
-        .set({ stage: "Ongoing Pre-Employment Requirements", stageUpdatedAt: changedAt })
-        .where(and(eq(applicants.id, applicant.id), eq(applicants.stage, "Accepted Offer")))
+        .set({ stage: "On-going Pre-Employment", stageOutcome: null, stageUpdatedAt: changedAt })
+        .where(
+          and(
+            eq(applicants.id, applicant.id),
+            eq(applicants.stage, "For Job Offering"),
+            eq(applicants.stageOutcome, "Accepted Offer"),
+          ),
+        )
         .returning({ id: applicants.id });
       if (!updatedApplicant) {
         throw new Error("Applicant stage changed while onboarding was being started.");
       }
       await tx.insert(applicantRecruitmentHistory).values({
         applicantId: applicant.id,
-        previousStage: "Accepted Offer",
-        stage: "Ongoing Pre-Employment Requirements",
+        previousStage: "For Job Offering",
+        previousStageOutcome: "Accepted Offer",
+        stage: "On-going Pre-Employment",
+        stageOutcome: null,
         changedAt,
       });
       return [createdOnboarding];
@@ -244,6 +254,17 @@ router.patch("/onboardings/:id", async (req, res) => {
     if (existing.status === "hired") {
       return res.status(400).json({ error: "Hired onboardings cannot be edited" });
     }
+    const progressStage = body.progressStage == null
+      ? existing.progressStage
+      : asTrimmedString(body.progressStage);
+    if (!ONBOARDING_PROGRESS_STAGES.includes(progressStage as (typeof ONBOARDING_PROGRESS_STAGES)[number])) {
+      return res.status(400).json({ error: "Invalid onboarding progress stage." });
+    }
+    if (["Employee Profile", "Employee Account", "Completed"].includes(progressStage)) {
+      return res.status(400).json({
+        error: "Employee profile and account stages are completed by employee creation.",
+      });
+    }
     const startingDate = "startingDate" in body
       ? parseDateOnly(body.startingDate)
       : existing.startingDate;
@@ -255,6 +276,9 @@ router.patch("/onboardings/:id", async (req, res) => {
       updatedAt: new Date(),
     };
     let updatedRequirements: PreEmploymentRequirement[] | null = null;
+    if ("progressStage" in body && body.progressStage != null) {
+      patch.progressStage = progressStage;
+    }
     if ("startingDate" in body) {
       patch.startingDate = startingDate;
     }
@@ -283,9 +307,9 @@ router.patch("/onboardings/:id", async (req, res) => {
       patch.status = asTrimmedString(body.status);
     }
     const nextStatus = typeof patch.status === "string" ? patch.status : existing.status;
-    if (nextStatus === "approved" && !startingDate) {
+    if (nextStatus === "approved" && (!startingDate || progressStage !== "Onboarding")) {
       return res.status(400).json({
-        error: "Set a starting date before approving onboarding.",
+        error: "Complete the starting-date step before approving onboarding.",
       });
     }
     if ("hrNotes" in body) {
@@ -294,25 +318,61 @@ router.patch("/onboardings/:id", async (req, res) => {
 
     const result = await db.transaction(async (tx) => {
       const [applicant] = await tx
-        .select({ id: applicants.id, stage: applicants.stage })
+        .select({ id: applicants.id, stage: applicants.stage, stageOutcome: applicants.stageOutcome })
         .from(applicants)
         .where(eq(applicants.id, existing.applicantId));
       if (!applicant) return { error: "Applicant not found" as const };
+      const currentProgressIndex = ONBOARDING_PROGRESS_STAGES.indexOf(
+        existing.progressStage as (typeof ONBOARDING_PROGRESS_STAGES)[number],
+      );
+      const nextProgressIndex = ONBOARDING_PROGRESS_STAGES.indexOf(
+        progressStage as (typeof ONBOARDING_PROGRESS_STAGES)[number],
+      );
+      if (
+        nextProgressIndex < currentProgressIndex ||
+        nextProgressIndex > currentProgressIndex + 1
+      ) {
+        return { error: "Advance onboarding one step at a time." as const };
+      }
+      const currentRequirements = updatedRequirements ?? existing.preEmploymentRequirements;
+      const doneLabels = new Set(currentRequirements.filter((item) => item.done).map((item) => item.label));
+      if (
+        progressStage === "Medical / Physical Exam" &&
+        !DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS
+          .filter((item) => item.label !== "Medical" && item.label !== "Physical")
+          .every((item) => doneLabels.has(item.label))
+      ) {
+        return { error: "Complete all pre-employment documents before moving to the medical exam." as const };
+      }
+      if (
+        progressStage === "Fit to Work" &&
+        (!doneLabels.has("Medical") || !doneLabels.has("Physical"))
+      ) {
+        return { error: "Complete the Medical and Physical checklist items before marking Fit to Work." as const };
+      }
+      if (
+        progressStage === "Starting Date" &&
+        (!startingDate || existing.progressStage !== "Fit to Work")
+      ) {
+        return { error: "Set a starting date after completing the Fit to Work step." as const };
+      }
+      if (progressStage === "Onboarding" && (!startingDate || existing.progressStage !== "Starting Date")) {
+        return { error: "Record a starting date before moving to Onboarding." as const };
+      }
       if (
         "startingDate" in body &&
         startingDate &&
-        applicant.stage !== "Fit to Work" &&
-        applicant.stage !== "Starting Date"
+        existing.progressStage !== "Fit to Work" &&
+        existing.progressStage !== "Starting Date" &&
+        progressStage !== "Starting Date"
       ) {
-        return { error: "Record a Fit to Work status before setting the starting date." as const };
+        return { error: "Record the Fit to Work step before setting the starting date." as const };
       }
       if (
         nextStatus === "approved" &&
-        applicant.stage !== "Starting Date" &&
-        applicant.stage !== "Onboarding" &&
-        !(applicant.stage === "Fit to Work" && startingDate && "startingDate" in body)
+        progressStage !== "Onboarding"
       ) {
-        return { error: "Set the applicant stage to Starting Date before approving onboarding." as const };
+        return { error: "Move onboarding to the Onboarding step before approving it." as const };
       }
       const [updated] = await tx
         .update(onboardings)
@@ -325,31 +385,16 @@ router.patch("/onboardings/:id", async (req, res) => {
           .set({ preEmploymentRequirements: updatedRequirements })
           .where(eq(applicants.id, existing.applicantId));
       }
-      const stages: string[] = [];
-      if (startingDate && applicant.stage === "Fit to Work") {
-        stages.push("Starting Date");
-      }
-      const stageAfterDate = stages.at(-1) ?? applicant.stage;
-      if (nextStatus === "approved" && stageAfterDate === "Starting Date") {
-        stages.push("Onboarding");
-      }
-      if (stages.length > 0) {
+      if (progressStage !== existing.progressStage) {
         const changedAt = new Date();
-        const finalStage = stages.at(-1)!;
-        await tx
-          .update(applicants)
-          .set({ stage: finalStage, stageUpdatedAt: changedAt })
-          .where(eq(applicants.id, applicant.id));
-        let previousStage = applicant.stage;
-        for (const stage of stages) {
-          await tx.insert(applicantRecruitmentHistory).values({
-            applicantId: applicant.id,
-            previousStage,
-            stage,
-            changedAt,
-          });
-          previousStage = stage;
-        }
+        await tx.insert(applicantRecruitmentHistory).values({
+          applicantId: applicant.id,
+          previousStage: applicant.stage,
+          previousStageOutcome: applicant.stageOutcome,
+          stage: progressStage,
+          stageOutcome: null,
+          changedAt,
+        });
       }
       return { row: updated };
     });
@@ -381,14 +426,19 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
         error: "Mark onboarding as approved before creating the employee profile",
       });
     }
+    if (existing.progressStage !== "Onboarding") {
+      return res.status(400).json({
+        error: "Advance onboarding to the Onboarding step before creating an employee profile.",
+      });
+    }
 
     const [applicant] = await db
       .select()
       .from(applicants)
       .where(eq(applicants.id, existing.applicantId));
-    if (!applicant || applicant.stage !== "Onboarding") {
+    if (!applicant || applicant.stage !== "On-going Pre-Employment") {
       return res.status(400).json({
-        error: "Complete the onboarding approval step before creating the employee profile.",
+        error: "Applicant must be in ongoing pre-employment before employee creation.",
       });
     }
 
@@ -440,6 +490,7 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
       .set({
         employeeId: employee!.id,
         status: "hired",
+        progressStage: "Completed",
         updatedAt: new Date(),
       })
       .where(eq(onboardings.id, id))
@@ -454,8 +505,13 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
       const changedAt = new Date();
       const [updatedApplicant] = await tx
         .update(applicants)
-        .set({ stage: "Onboarded", stageUpdatedAt: changedAt })
-        .where(and(eq(applicants.id, currentApplicant.id), eq(applicants.stage, currentApplicant.stage)))
+        .set({ stage: "Onboarded", stageOutcome: null, stageUpdatedAt: changedAt })
+        .where(
+          and(
+            eq(applicants.id, currentApplicant.id),
+            eq(applicants.stage, "On-going Pre-Employment"),
+          ),
+        )
         .returning({ id: applicants.id, stage: applicants.stage, stageUpdatedAt: applicants.stageUpdatedAt });
       if (updatedApplicant) {
         const stages = [
@@ -468,7 +524,9 @@ router.post("/onboardings/:id/create-employee", async (req, res) => {
           await tx.insert(applicantRecruitmentHistory).values({
             applicantId: updatedApplicant.id,
             previousStage,
+            previousStageOutcome: null,
             stage,
+            stageOutcome: null,
             changedAt: updatedApplicant.stageUpdatedAt,
           });
           previousStage = stage;

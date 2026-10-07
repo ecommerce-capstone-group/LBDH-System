@@ -76,7 +76,12 @@ export default function ApplicantMonitoring() {
                           </TableCell>
                           <TableCell>
                             <span className="inline-flex max-w-56 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800">
-                              {applicant.stage}
+                              <span>
+                                {applicant.stage}
+                                {applicant.stageOutcome ? (
+                                  <span className="mt-0.5 block font-normal">{applicant.stageOutcome}</span>
+                                ) : null}
+                              </span>
                             </span>
                           </TableCell>
                         </TableRow>

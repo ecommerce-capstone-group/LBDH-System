@@ -146,6 +146,7 @@ export interface Applicant {
   experience: string;
   resume: string;
   stage: string;
+  stageOutcome?: string | null;
   stageUpdatedAt: string;
   preEmploymentRequirements: PreEmploymentRequirement[];
   recruitmentHistory?: ApplicantRecruitmentHistory[];
@@ -173,12 +174,15 @@ export interface ApplicantRecruitmentHistory {
   id: number;
   applicantId: number;
   previousStage?: string | null;
+  previousStageOutcome?: string | null;
   stage: string;
+  stageOutcome?: string | null;
   changedAt: string;
 }
 
 export interface ApplicantUpdate {
   stage?: string;
+  stageOutcome?: string | null;
   preEmploymentRequirements?: PreEmploymentRequirement[];
 }
 
@@ -635,6 +639,7 @@ export interface Onboarding {
   applicantPhone: string;
   jobTitle: string;
   jobDepartment: string;
+  progressStage: string;
   interviewScheduledAt?: string | null;
   startingDate?: string | null;
   interviewNotes: string;
@@ -657,6 +662,7 @@ export interface OnboardingInput {
 }
 
 export interface OnboardingUpdate {
+  progressStage?: string | null;
   interviewScheduledAt?: string | null;
   startingDate?: string | null;
   interviewNotes?: string | null;

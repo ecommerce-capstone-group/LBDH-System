@@ -23,12 +23,14 @@ const router: IRouter = Router();
 const GEMINI_DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const validStages = new Set<string>(APPLICANT_RECRUITMENT_STAGES);
 const systemManagedStages = new Set([
-  "Starting Date",
-  "Onboarding",
-  "Employee Profile Created",
-  "Employee Account Created",
+  "On-going Pre-Employment",
   "Onboarded",
 ]);
+const stageOutcomes: Record<string, string[]> = {
+  "For Initial Interview": ["Passed", "Not Passed"],
+  "For Final Interview": ["Passed", "Not Passed"],
+  "For Job Offering": ["Accepted Offer", "Declined Offer"],
+};
 const requirementLabels = new Set(DEFAULT_PRE_EMPLOYMENT_REQUIREMENTS.map((item) => item.label));
 
 let monitoringSchemaReady: Promise<void> | null = null;
@@ -40,9 +42,11 @@ export function ensureApplicantMonitoringSchema(): Promise<void> {
         ALTER TABLE jobs ADD COLUMN IF NOT EXISTS unit text NOT NULL DEFAULT '';
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS stage text NOT NULL DEFAULT 'For Initial Interview';
+        ALTER TABLE applicants ADD COLUMN IF NOT EXISTS stage_outcome text;
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS stage_updated_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE applicants ADD COLUMN IF NOT EXISTS pre_employment_requirements jsonb NOT NULL DEFAULT '[]'::jsonb;
         ALTER TABLE onboardings ADD COLUMN IF NOT EXISTS starting_date date;
+        ALTER TABLE onboardings ADD COLUMN IF NOT EXISTS progress_stage text NOT NULL DEFAULT 'Pre-Employment Requirements';
         CREATE TABLE IF NOT EXISTS applicant_recruitment_history (
           id serial PRIMARY KEY,
           applicant_id integer NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
@@ -50,29 +54,56 @@ export function ensureApplicantMonitoringSchema(): Promise<void> {
           stage text NOT NULL,
           changed_at timestamptz NOT NULL DEFAULT now()
         );
+        ALTER TABLE applicant_recruitment_history ADD COLUMN IF NOT EXISTS stage_outcome text;
+        ALTER TABLE applicant_recruitment_history ADD COLUMN IF NOT EXISTS previous_stage_outcome text;
         UPDATE applicants a
-        SET stage = CASE
-          WHEN (
-            SELECT h.previous_stage
-            FROM applicant_recruitment_history h
-            WHERE h.applicant_id = a.id AND h.stage = 'Not Passed'
-            ORDER BY h.changed_at DESC, h.id DESC
-            LIMIT 1
-          ) = 'For Final Interview' THEN 'Not Passed - Final Interview'
-          ELSE 'Not Passed - Initial Interview'
+        SET stage_outcome = CASE
+          WHEN a.stage IN ('Passed Initial Interview', 'Passed Final Interview') THEN 'Passed'
+          WHEN a.stage IN ('Not Passed - Initial Interview', 'Not Passed - Final Interview', 'Not Passed') THEN 'Not Passed'
+          WHEN a.stage = 'Accepted Offer' THEN 'Accepted Offer'
+          WHEN a.stage = 'Declined Offer' THEN 'Declined Offer'
+          ELSE a.stage_outcome
+        END,
+        stage = CASE
+          WHEN a.stage IN ('Passed Initial Interview', 'Not Passed - Initial Interview') THEN 'For Initial Interview'
+          WHEN a.stage IN ('Passed Final Interview', 'Not Passed - Final Interview') THEN 'For Final Interview'
+          WHEN a.stage IN ('For Job Offer', 'Accepted Offer', 'Declined Offer') THEN 'For Job Offering'
+          WHEN a.stage IN ('Ongoing Pre-Employment Requirements', 'For Physical Exam', 'Fit to Work',
+                           'Not Fit', 'Not Passed - Medical/Physical Exam', 'Starting Date', 'Onboarding',
+                           'Employee Profile Created', 'Employee Account Created') THEN 'On-going Pre-Employment'
+          WHEN a.stage = 'Not Passed' THEN CASE
+            WHEN (
+              SELECT h.previous_stage FROM applicant_recruitment_history h
+              WHERE h.applicant_id = a.id AND h.stage = 'Not Passed'
+              ORDER BY h.changed_at DESC, h.id DESC LIMIT 1
+            ) = 'For Final Interview' THEN 'For Final Interview'
+            ELSE 'For Initial Interview'
+          END
+          ELSE a.stage
         END
-        WHERE a.stage = 'Not Passed';
+        WHERE a.stage NOT IN ('For Initial Interview', 'For Final Interview', 'For Job Offering',
+                              'On-going Pre-Employment', 'Onboarded', 'Withdraw Application', 'No Show');
         UPDATE applicant_recruitment_history
-        SET stage = CASE
-          WHEN previous_stage = 'For Final Interview' THEN 'Not Passed - Final Interview'
-          ELSE 'Not Passed - Initial Interview'
-        END
-        WHERE stage = 'Not Passed';
-        UPDATE applicants SET stage = 'Not Passed - Medical/Physical Exam'
-        WHERE stage = 'Not Fit';
-        UPDATE applicant_recruitment_history
-        SET stage = 'Not Passed - Medical/Physical Exam'
-        WHERE stage = 'Not Fit';
+        SET stage_outcome = CASE
+          WHEN stage IN ('Passed Initial Interview', 'Passed Final Interview') THEN 'Passed'
+          WHEN stage IN ('Not Passed - Initial Interview', 'Not Passed - Final Interview', 'Not Passed') THEN 'Not Passed'
+          WHEN stage = 'Accepted Offer' THEN 'Accepted Offer'
+          WHEN stage = 'Declined Offer' THEN 'Declined Offer'
+          ELSE stage_outcome
+        END,
+        stage = CASE
+          WHEN stage IN ('Passed Initial Interview', 'Not Passed - Initial Interview') THEN 'For Initial Interview'
+          WHEN stage IN ('Passed Final Interview', 'Not Passed - Final Interview') THEN 'For Final Interview'
+          WHEN stage IN ('For Job Offer', 'Accepted Offer', 'Declined Offer') THEN 'For Job Offering'
+          WHEN stage IN ('Ongoing Pre-Employment Requirements', 'For Physical Exam', 'Fit to Work',
+                         'Not Fit', 'Not Passed - Medical/Physical Exam', 'Starting Date', 'Onboarding',
+                         'Employee Profile Created', 'Employee Account Created') THEN 'On-going Pre-Employment'
+          WHEN stage = 'Not Passed' THEN CASE
+            WHEN previous_stage = 'For Final Interview' THEN 'For Final Interview'
+            ELSE 'For Initial Interview'
+          END
+          ELSE stage
+        END;
         UPDATE applicants
         SET stage_updated_at = created_at
         WHERE stage = 'For Initial Interview'
@@ -85,6 +116,14 @@ export function ensureApplicantMonitoringSchema(): Promise<void> {
         WHERE NOT EXISTS (
           SELECT 1 FROM applicant_recruitment_history h WHERE h.applicant_id = a.id
         );
+        UPDATE onboardings
+        SET progress_stage = CASE
+          WHEN status = 'hired' THEN 'Completed'
+          WHEN status = 'approved' THEN 'Onboarding'
+          WHEN starting_date IS NOT NULL THEN 'Starting Date'
+          ELSE 'Pre-Employment Requirements'
+        END
+        WHERE progress_stage = 'Pre-Employment Requirements';
       `)
       .then(async () => {
         await pool.query(
@@ -429,16 +468,23 @@ router.patch("/applicants/:id", async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid id" });
     const body = UpdateApplicantBody.parse(req.body);
-    if (!("stage" in body) && !("preEmploymentRequirements" in body)) {
+    if (!("stage" in body) && !("stageOutcome" in body) && !("preEmploymentRequirements" in body)) {
       return res.status(400).json({ error: "No applicant changes provided" });
     }
-    if (body.stage !== undefined && !validStages.has(body.stage)) {
+    const nextStage = body.stage ?? undefined;
+    if (nextStage !== undefined && !validStages.has(nextStage)) {
       return res.status(400).json({ error: "Invalid recruitment stage" });
     }
-    if (body.stage !== undefined && systemManagedStages.has(body.stage)) {
+    if (nextStage !== undefined && systemManagedStages.has(nextStage)) {
       return res.status(400).json({
         error: "This recruitment stage is recorded automatically by the onboarding workflow.",
       });
+    }
+    if (
+      body.stageOutcome != null &&
+      (!nextStage || !stageOutcomes[nextStage]?.includes(body.stageOutcome))
+    ) {
+      return res.status(400).json({ error: "Outcome does not match the selected applicant status." });
     }
     const requirements =
       body.preEmploymentRequirements === undefined
@@ -453,11 +499,40 @@ router.patch("/applicants/:id", async (req, res) => {
       if (!existing) return null;
 
       const changedAt = new Date();
-      const stageChanged = body.stage !== undefined && body.stage !== existing.stage;
-      if (!stageChanged && !requirements) return existing;
+      const updatedStage = nextStage ?? existing.stage;
+      const updatedOutcome =
+        nextStage !== undefined && nextStage !== existing.stage
+          ? body.stageOutcome ?? null
+          : body.stageOutcome === undefined
+            ? existing.stageOutcome
+            : body.stageOutcome;
+      if (
+        body.stageOutcome != null &&
+        !stageOutcomes[updatedStage]?.includes(body.stageOutcome)
+      ) {
+        throw new Error("Outcome does not match the selected applicant status.");
+      }
+      const stageChanged = updatedStage !== existing.stage;
+      const outcomeChanged = updatedOutcome !== existing.stageOutcome;
+      if (!stageChanged && !outcomeChanged && !requirements) return existing;
+      if (
+        stageChanged &&
+        updatedStage === "For Final Interview" &&
+        (existing.stage !== "For Initial Interview" || existing.stageOutcome !== "Passed")
+      ) {
+        return { error: "Mark the initial interview as passed before scheduling the final interview." };
+      }
+      if (
+        stageChanged &&
+        updatedStage === "For Job Offering" &&
+        (existing.stage !== "For Final Interview" || existing.stageOutcome !== "Passed")
+      ) {
+        return { error: "Mark the final interview as passed before preparing a job offer." };
+      }
       const patch: Partial<typeof applicants.$inferInsert> = {};
-      if (stageChanged) {
-        patch.stage = body.stage!;
+      if (stageChanged || outcomeChanged) {
+        patch.stage = updatedStage;
+        patch.stageOutcome = updatedOutcome;
         patch.stageUpdatedAt = changedAt;
       }
       if (requirements) patch.preEmploymentRequirements = requirements;
@@ -469,11 +544,13 @@ router.patch("/applicants/:id", async (req, res) => {
         .returning();
       if (!applicant) return null;
 
-      if (stageChanged) {
+      if (stageChanged || outcomeChanged) {
         await tx.insert(applicantRecruitmentHistory).values({
           applicantId: id,
           previousStage: existing.stage,
-          stage: body.stage!,
+          previousStageOutcome: existing.stageOutcome,
+          stage: updatedStage,
+          stageOutcome: updatedOutcome,
           changedAt,
         });
       }
@@ -485,6 +562,9 @@ router.patch("/applicants/:id", async (req, res) => {
       }
       return applicant;
     });
+    if (updated && "error" in updated) {
+      return res.status(400).json({ error: updated.error });
+    }
     if (!updated) return res.status(404).json({ error: "Applicant not found" });
 
     const history = await db

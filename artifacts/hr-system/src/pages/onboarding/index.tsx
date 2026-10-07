@@ -66,6 +66,7 @@ export default function OnboardingPage() {
   const [interviewNotes, setInterviewNotes] = useState("");
   const [hrNotes, setHrNotes] = useState("");
   const [onboardingStatus, setOnboardingStatus] = useState("in_progress");
+  const [progressStage, setProgressStage] = useState("Pre-Employment Requirements");
   const [requirements, setRequirements] = useState<PreEmploymentRequirement[]>([]);
 
   const [hireName, setHireName] = useState("");
@@ -98,6 +99,7 @@ export default function OnboardingPage() {
     setInterviewNotes(row.interviewNotes || "");
     setHrNotes(row.hrNotes || "");
     setOnboardingStatus(row.status || "in_progress");
+    setProgressStage(row.progressStage || "Pre-Employment Requirements");
     setRequirements(
       Array.isArray(row.preEmploymentRequirements)
         ? row.preEmploymentRequirements.map((r) => ({ ...r }))
@@ -122,6 +124,7 @@ export default function OnboardingPage() {
       await updateOnboarding.mutateAsync({
         id: editRecord.id,
         data: {
+          progressStage,
           interviewScheduledAt: fromDatetimeLocalValue(interviewScheduledAt),
           startingDate: startingDate || null,
           interviewStatus,
@@ -168,6 +171,10 @@ export default function OnboardingPage() {
       await queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+      await queryClient.invalidateQueries({ queryKey: getListApplicantsQueryKey() });
+      await queryClient.invalidateQueries({
+        queryKey: getGetApplicantQueryKey(hireRecord.applicantId),
+      });
       setHireRecord(null);
       if (result.account?.username && result.account.temporaryPassword) {
         setCredentials({
@@ -234,6 +241,27 @@ export default function OnboardingPage() {
           {editRecord && (
             <>
               <div className="grid gap-4 py-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="ob-progress-stage">Onboarding progress</Label>
+                  <select
+                    id="ob-progress-stage"
+                    className={selectClass}
+                    value={progressStage}
+                    onChange={(e) => setProgressStage(e.target.value)}
+                  >
+                    <option value="Pre-Employment Requirements">Pre-Employment Requirements</option>
+                    <option value="Medical / Physical Exam">Medical / Physical Exam</option>
+                    <option value="Fit to Work">Fit to Work</option>
+                    <option value="Starting Date">Starting Date</option>
+                    <option value="Onboarding">Onboarding</option>
+                    {["Employee Profile", "Employee Account", "Completed"].includes(progressStage) ? (
+                      <option value={progressStage}>{progressStage}</option>
+                    ) : null}
+                  </select>
+                  <p className="text-xs text-gray-500">
+                    Progress through requirements, medical/physical exam, Fit to Work, starting date, and onboarding in order.
+                  </p>
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="ob-interview-at">Interview schedule</Label>
                   <Input
@@ -441,6 +469,9 @@ export default function OnboardingPage() {
                   </p>
                   <p className="text-sm text-gray-600 mt-1">
                     Starting date: {row.startingDate ? new Date(`${row.startingDate}T00:00:00`).toLocaleDateString() : "Not set"}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Onboarding progress: <strong>{row.progressStage}</strong>
                   </p>
                 </CardHeader>
                 <CardContent className="pt-6">
